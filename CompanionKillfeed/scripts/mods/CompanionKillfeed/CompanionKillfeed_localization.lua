@@ -14,6 +14,15 @@ return {
 	visibility = {
 		en = "Visibility",
 	},
+	formatting = {
+		en = "Formatting",
+	},
+	tab_general = {
+		en = "General Settings",
+	},
+	tab_companions = {
+		en = "Companions",
+	},
 	show_in_main_feed = {
 		en = "Show in vanilla killfeed",
 	},
