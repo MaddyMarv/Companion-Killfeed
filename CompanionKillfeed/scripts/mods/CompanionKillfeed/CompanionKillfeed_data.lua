@@ -18,7 +18,7 @@ return {
 					{
 						setting_id    = "show_separate_feed",
 						type          = "checkbox",
-						default_value = true,
+						default_value = false,
 					},
 				},
 			},

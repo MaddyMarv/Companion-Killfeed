@@ -308,11 +308,14 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 		end
 	end
 
-	if is_companion and should_show_companion and show_in_main_feed and companion_feed_element then
-		func(companion_feed_element, actual_attacking_unit, attacked_unit)
-	end
-
-	if not is_companion or (should_show_companion and show_separate_feed) then
+	if is_companion and should_show_companion then
+		if show_separate_feed and companion_feed_element then
+			func(companion_feed_element, actual_attacking_unit, attacked_unit)
+		end
+		if show_in_main_feed or not show_separate_feed then
+			func(self, actual_attacking_unit, attacked_unit)
+		end
+	else
 		func(self, actual_attacking_unit, attacked_unit)
 	end
 end)

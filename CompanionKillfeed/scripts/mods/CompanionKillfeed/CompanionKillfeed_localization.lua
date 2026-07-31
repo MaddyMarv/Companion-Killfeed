@@ -15,7 +15,7 @@ return {
 		en = "Visibility",
 	},
 	show_in_main_feed = {
-		en = "Show in main killfeed",
+		en = "Show in vanilla killfeed",
 	},
 	show_separate_feed = {
 		en = "Show in separate companion feed",
