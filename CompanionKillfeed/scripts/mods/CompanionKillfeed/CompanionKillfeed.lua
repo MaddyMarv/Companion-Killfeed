@@ -243,24 +243,40 @@ end)
 
 local main_feed_element = nil
 
-mod:hook("HudElementCombatFeed", "init", function(func, self, parent, draw_layer, start_scale)
-	func(self, parent, draw_layer, start_scale)
+local function lazy_identify(self)
+	if self._companion_feed_checked then return end
+	
+	if self._parent and self._parent._elements then
+		for name, el in pairs(self._parent._elements) do
+			if el == self then
+				self._companion_feed_checked = true
+				if name == "HudElementCompanionCombatFeed" then
+					self._is_companion_feed = true
+					companion_feed_element = self
 
-	if not main_feed_element then
-		main_feed_element = self
-	elseif not companion_feed_element and self ~= main_feed_element then
-		self._is_companion_feed = true
-		companion_feed_element  = self
-		
-		local widgets = self._widgets
-		if widgets then
-			for _, widget in pairs(widgets) do
-				if widget.offset then
-					widget.offset[2] = (widget.offset[2] or 0) - 250
+					local widgets = self._widgets
+					if widgets then
+						for _, widget in pairs(widgets) do
+							if widget.offset then
+								widget.offset[2] = (widget.offset[2] or 0) - 250
+							end
+						end
+					end
+				elseif name == "HudElementCombatFeed" then
+					main_feed_element = self
 				end
+				break
 			end
 		end
 	end
+end
+
+mod:hook("HudElementCombatFeed", "_enabled", function(func, self, ...)
+	lazy_identify(self)
+	if self._is_companion_feed and not show_separate_feed then
+		return false
+	end
+	return func(self, ...)
 end)
 
 mod:hook("HudElementCombatFeed", "destroy", function(func, self)
@@ -274,6 +290,7 @@ mod:hook("HudElementCombatFeed", "destroy", function(func, self)
 end)
 
 mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, attacking_unit, attacked_unit)
+	lazy_identify(self)
 	if self._is_companion_feed then
 		return
 	end
