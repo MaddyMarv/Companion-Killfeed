@@ -75,14 +75,15 @@ local function unit_is_companion(unit)
 end
 
 local function get_companion_type(unit)
+	if not unit or not ALIVE[unit] then return "skull" end
 	local ext = ScriptUnit.has_extension(unit, "unit_data_system")
-	if not ext then return "skull" end
+	if not ext or not ext.breed then return "skull" end
 	local breed = ext:breed()
 	if breed and breed.name and string.find(breed.name, "dog", 1, true) then
 		return "dog"
 	end
 	local owner = get_companion_owner(unit)
-	if owner and owner.player_unit then
+	if owner and owner.player_unit and ALIVE[owner.player_unit] then
 		local spawner_ext = ScriptUnit.has_extension(owner.player_unit, "companion_spawner_system")
 		if spawner_ext then
 			local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
@@ -107,7 +108,7 @@ local function get_companion_display_name(unit, ctype)
 
 	if string.sub(ctype, 1, 5) == "skull" then
 		local servo_mod = get_mod("ServoSkullNametag")
-		if servo_mod and owner.player_unit then
+		if servo_mod and owner.player_unit and ALIVE[owner.player_unit] then
 			local spawner_ext = ScriptUnit.has_extension(owner.player_unit, "companion_spawner_system")
 			if spawner_ext then
 				local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
@@ -211,8 +212,9 @@ local function colorize(text, color)
 end
 
 local function get_victim_display_name(unit)
+	if not unit or not ALIVE[unit] then return "Enemy" end
 	local ext   = ScriptUnit.has_extension(unit, "unit_data_system")
-	local breed = ext and ext:breed()
+	local breed = ext and ext.breed and ext:breed()
 	if breed and breed.display_name then
 		return Localize(breed.display_name)
 	end
@@ -266,9 +268,8 @@ mod.update = function(dt)
 	local game_mode = Managers.state.game_mode
 	if not game_mode or game_mode:game_mode_name() == "hub" then return end
 
-	local gs = Managers.state.game_session:game_session()
 	local usp = Managers.state.unit_spawner
-	if not gs or not usp then return end
+	if not usp then return end
 
 	local check_all = mod:get("show_all_companions")
 	local local_player = get_local_player()
@@ -285,17 +286,18 @@ mod.update = function(dt)
 						for i = 1, #skulls do
 							local skull = skulls[i]
 							if skull and ALIVE[skull] then
-								local go_id = usp:game_object_id(skull)
-								if go_id and GameSession.game_object_exists(gs, go_id) then
-									local ok_st, st = pcall(GameSession.game_object_field, gs, go_id, "state")
-									if ok_st and st then
+								local skull_ext = ScriptUnit.has_extension(skull, "unit_data_system")
+								if skull_ext and skull_ext.read_component then
+									local action_comp = skull_ext:read_component("action")
+									if action_comp and action_comp.name then
+										local st = action_comp.name
 										local prev = _skull_prev_states[skull]
 										if prev ~= st then
 											_skull_prev_states[skull] = st
 											if prev ~= nil then
-												if st == STATES.inject_ally and mod:get("show_servo_medic") then
+												if string.find(st, "inject") and mod:get("show_servo_medic") then
 													trigger_manual_feed(skull, "skull_medic", "revived an ally")
-												elseif st == STATES.hacking and mod:get("show_servo_hacker") then
+												elseif string.find(st, "hack") and mod:get("show_servo_hacker") then
 													trigger_manual_feed(skull, "skull_hacker", "is hacking")
 												end
 											end
@@ -465,7 +467,7 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 	if (last_companion_killer_type or is_flame_grenade) and buffer_data.attacking_unit then
 		local owner = get_companion_owner(buffer_data.attacking_unit)
 		local player = owner or (Managers.player and Managers.player:player_by_unit(buffer_data.attacking_unit))
-		if player and player.player_unit then
+		if player and player.player_unit and ALIVE[player.player_unit] then
 			local spawner_ext = ScriptUnit.has_extension(player.player_unit, "companion_spawner_system")
 			if spawner_ext and spawner_ext._spawned_units then
 				local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
