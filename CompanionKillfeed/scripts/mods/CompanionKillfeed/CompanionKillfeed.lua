@@ -36,9 +36,14 @@ local function get_local_player()
 	return nil
 end
 
+local _is_in_run = false
+
 mod.on_game_state_changed = function(status, state)
 	if state == "GameplayStateRun" then
-		if status == "exit" then
+		if status == "enter" then
+			_is_in_run = true
+		elseif status == "exit" then
+			_is_in_run = false
 			companion_feed_element = nil
 		end
 	end
@@ -260,7 +265,11 @@ local function trigger_manual_feed(skull_unit, ctype, action_text)
 end
 
 mod.update = function(dt)
-	if not STATES or not Managers.player or not Managers.state or not Managers.state.game_session then return end
+	if not _is_in_run or not STATES or not Managers.player or not Managers.state or not Managers.state.game_session then return end
+	
+	local game_mode = Managers.state.game_mode
+	if not game_mode or game_mode:game_mode_name() == "hub" then return end
+
 	local gs = Managers.state.game_session:game_session()
 	local usp = Managers.state.unit_spawner
 	if not gs or not usp then return end
