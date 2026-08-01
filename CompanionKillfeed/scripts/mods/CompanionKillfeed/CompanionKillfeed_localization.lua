@@ -32,8 +32,17 @@ return {
 	show_dog = {
 		en = "Track dog kills",
 	},
-	show_servo_skull = {
-		en = "Track servo skull kills",
+	show_servo_flame = {
+		en = "Track Flame Skull kills",
+	},
+	show_servo_hacker = {
+		en = "Track Hacker Skull hacks",
+	},
+	show_servo_lasgun = {
+		en = "Track Lasgun Skull kills",
+	},
+	show_servo_medic = {
+		en = "Track Medic Skull revives",
 	},
 	show_all_companions = {
 		en = "Show all players' companions (off = your companion only)",

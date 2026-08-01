@@ -46,7 +46,22 @@ return {
 						default_value = true,
 					},
 					{
-						setting_id    = "show_servo_skull",
+						setting_id    = "show_servo_flame",
+						type          = "checkbox",
+						default_value = true,
+					},
+					{
+						setting_id    = "show_servo_hacker",
+						type          = "checkbox",
+						default_value = true,
+					},
+					{
+						setting_id    = "show_servo_lasgun",
+						type          = "checkbox",
+						default_value = true,
+					},
+					{
+						setting_id    = "show_servo_medic",
 						type          = "checkbox",
 						default_value = true,
 					},
