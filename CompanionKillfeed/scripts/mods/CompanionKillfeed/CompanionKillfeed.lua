@@ -511,6 +511,8 @@ local COMPANION_DAMAGE_PROFILES = {
 	["adamant_companion_ogryn_pounce"] = "dog",
 	["adamant_companion_initial_pounce"] = "dog",
 	["adamant_companion_no_damage_pounce"] = "dog",
+	["whistle_explosion"] = "dog",
+	["close_whistle_explosion"] = "dog",
 	
 	["companion_servo_skull_flamer"] = "skull_flame",
 	["default_companion_servo_skull_lasgun_killshot"] = "skull_lasgun",
