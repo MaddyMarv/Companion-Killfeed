@@ -14,6 +14,12 @@ return {
 	visibility = {
 		en = "Visibility",
 	},
+	enemy_filters = {
+		en = "Enemy Filters",
+	},
+	companion_filters = {
+		en = "Companion Filters",
+	},
 	formatting = {
 		en = "Formatting",
 	},
@@ -28,6 +34,9 @@ return {
 	},
 	tab_general = {
 		en = "General Settings",
+	},
+	tab_filters = {
+		en = "Filters",
 	},
 	tab_companions = {
 		en = "Companions",
