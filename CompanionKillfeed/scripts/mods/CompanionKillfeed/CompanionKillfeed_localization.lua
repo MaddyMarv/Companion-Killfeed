@@ -47,6 +47,9 @@ return {
 	show_all_companions = {
 		en = "Show all players' companions (off = your companion only)",
 	},
+	show_non_elite_kills = {
+		en = "Show kills on non-elites, bosses, or specials",
+	},
 	name_format = {
 		en = "Name format",
 	},

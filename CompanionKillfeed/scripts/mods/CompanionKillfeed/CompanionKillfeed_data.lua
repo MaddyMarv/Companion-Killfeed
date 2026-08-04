@@ -33,6 +33,11 @@ return {
 						type          = "checkbox",
 						default_value = true,
 					},
+					{
+						setting_id    = "show_non_elite_kills",
+						type          = "checkbox",
+						default_value = false,
+					},
 				},
 			},
 			{
