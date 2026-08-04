@@ -10,6 +10,8 @@ local show_servo_medic    = true
 local show_all_companions = true
 local show_non_elite_kills = false
 local name_format         = "companion_name"
+local offset_x            = 0
+local offset_y            = 300
 
 local function cache_settings()
 	show_in_main_feed   = mod:get("show_in_main_feed")
@@ -21,11 +23,35 @@ local function cache_settings()
 	show_servo_medic    = mod:get("show_servo_medic")
 	show_all_companions = mod:get("show_all_companions")
 	show_non_elite_kills = mod:get("show_non_elite_kills")
+	stack_non_elite_kills = mod:get("stack_non_elite_kills")
 	name_format         = mod:get("name_format")
+	offset_x            = mod:get("offset_x") or 0
+	offset_y            = mod:get("offset_y") or 300
 end
 
 mod.on_all_mods_loaded = cache_settings
-mod.on_setting_changed = cache_settings
+
+mod.on_setting_changed = function(setting_id)
+	cache_settings()
+	if companion_feed_element and companion_feed_element.set_scenegraph_position and companion_feed_element._ui_scenegraph then
+		local has_combat_feed = false
+		local has_pivot = false
+		local has_background = false
+		for k, _ in pairs(companion_feed_element._ui_scenegraph) do
+			if k == "combat_feed" then has_combat_feed = true end
+			if k == "pivot" then has_pivot = true end
+			if k == "background" then has_background = true end
+		end
+		
+		if has_combat_feed then
+			companion_feed_element:set_scenegraph_position("combat_feed", offset_x, offset_y, nil)
+		elseif has_pivot then
+			companion_feed_element:set_scenegraph_position("pivot", offset_x, offset_y, nil)
+		elseif has_background then
+			companion_feed_element:set_scenegraph_position("background", offset_x, offset_y, nil)
+		end
+	end
+end
 
 local companion_feed_element = nil
 local last_companion_killer_type = nil
@@ -277,6 +303,8 @@ local _skull_prev_states = setmetatable({}, { __mode = "k" })
 local STATES = nil
 pcall(function() STATES = require("scripts/settings/companion/companion_servo_skull_settings").STATES end)
 
+local _is_our_message = false
+
 local function trigger_manual_feed(skull_unit, ctype, action_text)
 	local TextUtilities = require("scripts/utilities/ui/text")
 	
@@ -287,8 +315,26 @@ local function trigger_manual_feed(skull_unit, ctype, action_text)
 	local colored_skull = TextUtilities.apply_color_to_text(name, color)
 
 	local msg = string.format("%s %s", colored_skull, action_text)
+	_is_our_message = true
 	Managers.event:trigger("event_add_combat_feed_message", msg)
+	_is_our_message = false
 end
+
+mod:hook("HudElementCombatFeed", "event_add_combat_feed_message", function(func, self, message_text, ...)
+	lazy_identify(self)
+	
+	if self._is_companion_feed then
+		if not _is_our_message then
+			return
+		end
+	else
+		if _is_our_message and not show_in_main_feed then
+			return
+		end
+	end
+	
+	func(self, message_text, ...)
+end)
 
 mod.update = function(dt)
 	if not STATES or not Managers.player or not Managers.state or not Managers.state.game_session then return end
@@ -426,12 +472,22 @@ local function lazy_identify(self)
 					self._is_companion_feed = true
 					companion_feed_element = self
 
-					local widgets = self._widgets
-					if widgets then
-						for _, widget in pairs(widgets) do
-							if widget.offset then
-								widget.offset[2] = (widget.offset[2] or 0) - 250
-							end
+					if self.set_scenegraph_position and self._ui_scenegraph then
+						local has_combat_feed = false
+						local has_pivot = false
+						local has_background = false
+						for k, _ in pairs(self._ui_scenegraph) do
+							if k == "combat_feed" then has_combat_feed = true end
+							if k == "pivot" then has_pivot = true end
+							if k == "background" then has_background = true end
+						end
+
+						if has_combat_feed then
+							self:set_scenegraph_position("combat_feed", offset_x, offset_y, nil)
+						elseif has_pivot then
+							self:set_scenegraph_position("pivot", offset_x, offset_y, nil)
+						elseif has_background then
+							self:set_scenegraph_position("background", offset_x, offset_y, nil)
 						end
 					end
 				elseif name == "HudElementCombatFeed" then
@@ -473,6 +529,11 @@ local function _maybe_merge_companion_kill(self, attacking_unit, attacked_unit)
 	local unit_data_ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 	local breed_or_nil = unit_data_ext and unit_data_ext:breed()
 	if not breed_or_nil then
+		return
+	end
+
+	local tags = breed_or_nil.tags
+	if tags and (tags.monster or tags.special or tags.elite or tags.captain or tags.boss) then
 		return
 	end
 
@@ -556,13 +617,13 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 	if is_companion and should_show_companion then
 		if show_separate_feed and companion_feed_element then
 			func(companion_feed_element, actual_attacking_unit, attacked_unit, weapon_item_or_damage_profile, ...)
-			if show_non_elite_kills then
+			if stack_non_elite_kills then
 				_maybe_merge_companion_kill(companion_feed_element, actual_attacking_unit, attacked_unit)
 			end
 		end
 		if show_in_main_feed or not show_separate_feed then
 			func(self, actual_attacking_unit, attacked_unit, weapon_item_or_damage_profile, ...)
-			if show_non_elite_kills then
+			if stack_non_elite_kills then
 				_maybe_merge_companion_kill(self, actual_attacking_unit, attacked_unit)
 			end
 		end

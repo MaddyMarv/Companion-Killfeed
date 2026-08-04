@@ -17,6 +17,15 @@ return {
 	formatting = {
 		en = "Formatting",
 	},
+	positioning = {
+		en = "Positioning",
+	},
+	offset_x = {
+		en = "Horizontal Offset (X)",
+	},
+	offset_y = {
+		en = "Vertical Offset (Y)",
+	},
 	tab_general = {
 		en = "General Settings",
 	},
@@ -45,10 +54,13 @@ return {
 		en = "Track Medic Skull revives",
 	},
 	show_all_companions = {
-		en = "Show all players' companions (off = your companion only)",
+		en = "Show all player's companions (off = your companion only)",
 	},
 	show_non_elite_kills = {
 		en = "Show kills on non-elites, bosses, or specials",
+	},
+	stack_non_elite_kills = {
+		en = "Stack/Combine non-elites, bosses, or specials",
 	},
 	name_format = {
 		en = "Name format",

@@ -38,6 +38,30 @@ return {
 						type          = "checkbox",
 						default_value = false,
 					},
+					{
+						setting_id    = "stack_non_elite_kills",
+						type          = "checkbox",
+						default_value = true,
+					},
+				},
+			},
+			{
+				setting_id  = "positioning",
+				type        = "group",
+				tab         = mod:localize("tab_general"),
+				sub_widgets = {
+					{
+						setting_id    = "offset_x",
+						type          = "numeric",
+						default_value = 0,
+						range         = {-2000, 2000},
+					},
+					{
+						setting_id    = "offset_y",
+						type          = "numeric",
+						default_value = 300,
+						range         = {-2000, 2000},
+					},
 				},
 			},
 			{
