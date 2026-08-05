@@ -56,6 +56,7 @@ end
 local companion_feed_element = nil
 local last_companion_killer_type = nil
 local last_companion_killer_unit = nil
+local lazy_identify
 
 local function get_local_player()
 	if Managers.player then
@@ -413,9 +414,6 @@ mod.update = function(dt)
 end
 
 mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, self, unit, is_killer, breed_or_nil, slot_or_nil, ...)
-	local safe_is_killer = (is_killer ~= nil) and is_killer or false
-	local safe_slot = (type(slot_or_nil) == "number") and slot_or_nil or 1
-
 	local is_companion = false
 	local ctype = nil
 	local companion_unit = unit
@@ -434,18 +432,18 @@ mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, s
 	end
 
 	if is_companion then
-		if ctype == "dog" and not show_dog then return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...) end
-		if ctype == "skull_flame" and not show_servo_flame then return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...) end
-		if ctype == "skull_hacker" and not show_servo_hacker then return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...) end
-		if ctype == "skull_lasgun" and not show_servo_lasgun then return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...) end
-		if ctype == "skull_medic" and not show_servo_medic then return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...) end
-		if ctype == "skull" and not show_servo_lasgun then return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...) end
+		if ctype == "dog" and not show_dog then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
+		if ctype == "skull_flame" and not show_servo_flame then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
+		if ctype == "skull_hacker" and not show_servo_hacker then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
+		if ctype == "skull_lasgun" and not show_servo_lasgun then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
+		if ctype == "skull_medic" and not show_servo_medic then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
+		if ctype == "skull" and not show_servo_lasgun then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
 
 		if not show_all_companions then
 			local owner = get_companion_owner(companion_unit)
 			local local_player = get_local_player()
 			if not owner or owner ~= local_player then
-				return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...)
+				return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...)
 			end
 		end
 
@@ -456,12 +454,12 @@ mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, s
 		end
 	end
 
-	return func(self, unit, safe_is_killer, breed_or_nil, safe_slot, ...)
+	return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...)
 end)
 
 local main_feed_element = nil
 
-local function lazy_identify(self)
+lazy_identify = function(self)
 	if self._companion_feed_checked then return end
 	
 	if self._parent and self._parent._elements then
