@@ -7,19 +7,31 @@ return {
 	options = {
 		widgets = {
 			{
-				setting_id  = "feed_display",
+				setting_id  = "routing",
 				type        = "group",
 				tab         = mod:localize("tab_general"),
 				sub_widgets = {
 					{
-						setting_id    = "show_in_main_feed",
-						type          = "checkbox",
-						default_value = true,
+						setting_id    = "my_feed_routing",
+						type          = "dropdown",
+						default_value = "main_feed_only",
+						options       = {
+							{ text = "main_feed_only", value = "main_feed_only" },
+							{ text = "separate_feed_only", value = "separate_feed_only" },
+							{ text = "both_feeds", value = "both_feeds" },
+							{ text = "off", value = "off" },
+						},
 					},
 					{
-						setting_id    = "show_separate_feed",
-						type          = "checkbox",
-						default_value = false,
+						setting_id    = "allied_feed_routing",
+						type          = "dropdown",
+						default_value = "main_feed_only",
+						options       = {
+							{ text = "main_feed_only", value = "main_feed_only" },
+							{ text = "separate_feed_only", value = "separate_feed_only" },
+							{ text = "both_feeds", value = "both_feeds" },
+							{ text = "off", value = "off" },
+						},
 					},
 				},
 			},
@@ -52,6 +64,7 @@ return {
 						type        = "dropdown",
 						options     = {
 							{ value = "companion_name",       text = "companion_name"       },
+							{ value = "companion_type_only",  text = "companion_type_only"  },
 							{ value = "player_possessive",    text = "player_possessive"    },
 							{ value = "companion_and_player", text = "companion_and_player" },
 							{ value = "player_name",          text = "player_name"          },
@@ -83,12 +96,12 @@ return {
 				tab         = mod:localize("tab_filters"),
 				sub_widgets = {
 					{
-						setting_id    = "show_all_companions",
+						setting_id    = "show_dog",
 						type          = "checkbox",
 						default_value = true,
 					},
 					{
-						setting_id    = "show_dog",
+						setting_id    = "show_servo_lasgun",
 						type          = "checkbox",
 						default_value = true,
 					},
@@ -99,11 +112,6 @@ return {
 					},
 					{
 						setting_id    = "show_servo_hacker",
-						type          = "checkbox",
-						default_value = true,
-					},
-					{
-						setting_id    = "show_servo_lasgun",
 						type          = "checkbox",
 						default_value = true,
 					},

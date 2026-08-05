@@ -1,27 +1,29 @@
 local mod = get_mod("CompanionKillfeed")
 
 local show_in_main_feed   = true
-local show_separate_feed  = true
+local show_separate_feed  = false
+local my_feed_routing     = "main_feed_only"
+local allied_feed_routing = "main_feed_only"
 local show_dog            = true
 local show_servo_flame    = true
 local show_servo_hacker   = true
 local show_servo_lasgun   = true
 local show_servo_medic    = true
-local show_all_companions = true
 local show_non_elite_kills = false
 local name_format         = "companion_name"
 local offset_x            = 0
 local offset_y            = 300
 
 local function cache_settings()
-	show_in_main_feed   = mod:get("show_in_main_feed")
-	show_separate_feed  = mod:get("show_separate_feed")
+	my_feed_routing     = mod:get("my_feed_routing") or "main_feed_only"
+	show_in_main_feed   = (my_feed_routing == "main_feed_only" or my_feed_routing == "both_feeds")
+	show_separate_feed  = (my_feed_routing == "separate_feed_only" or my_feed_routing == "both_feeds")
+	allied_feed_routing = mod:get("allied_feed_routing") or "main_feed_only"
 	show_dog            = mod:get("show_dog")
 	show_servo_flame    = mod:get("show_servo_flame")
 	show_servo_hacker   = mod:get("show_servo_hacker")
 	show_servo_lasgun   = mod:get("show_servo_lasgun")
 	show_servo_medic    = mod:get("show_servo_medic")
-	show_all_companions = mod:get("show_all_companions")
 	show_non_elite_kills = mod:get("show_non_elite_kills")
 	stack_non_elite_kills = mod:get("stack_non_elite_kills")
 	name_format         = mod:get("name_format")
@@ -212,19 +214,23 @@ local function get_companion_display_name(unit, ctype)
 	end
 	if icon and icon ~= "" then icon = icon .. " " end
 
-	if name_format == "player_name" then
-		return icon .. char_name
+	local companion_type_name = "Servo Skull"
+	if ctype == "dog" then
+		companion_type_name = "Cyber-Mastiff"
+	elseif ctype == "skull_flame" then
+		companion_type_name = "Flame Skull"
+	elseif ctype == "skull_medic" then
+		companion_type_name = "Medic Skull"
+	end
+
+	if name_format == "companion_type_only" then
+		return icon .. companion_type_name
 	end
 
 	local base_name = given
 	if not base_name or base_name == "" then
-		if ctype == "dog" then base_name = "Dog"
-		elseif string.find(ctype, "skull") then base_name = "Servo Skull"
-		else base_name = "Servo Skull" end
+		base_name = companion_type_name
 	end
-	
-	local companion_type_name = "Servo Skull"
-	if ctype == "dog" then companion_type_name = "Dog" end
 
 	if name_format == "companion_and_player" then
 		return icon .. string.format("%s (%s)", base_name, char_name)
@@ -240,10 +246,7 @@ local function get_companion_display_name(unit, ctype)
 		return icon .. given
 	end
 
-	if ctype == "dog" then
-		return icon .. char_name .. "'s Dog"
-	end
-	return icon .. char_name .. "'s Servo Skull"
+	return icon .. char_name .. "'s " .. companion_type_name
 end
 
 local function get_companion_color(unit)
@@ -306,6 +309,9 @@ pcall(function() STATES = require("scripts/settings/companion/companion_servo_sk
 
 local _is_our_message = false
 
+local _our_message_route_main = nil
+local _our_message_route_separate = nil
+
 local function trigger_manual_feed(skull_unit, ctype, action_text)
 	local TextUtilities = require("scripts/utilities/ui/text")
 	
@@ -316,9 +322,33 @@ local function trigger_manual_feed(skull_unit, ctype, action_text)
 	local colored_skull = TextUtilities.apply_color_to_text(name, color)
 
 	local msg = string.format("%s %s", colored_skull, action_text)
+	
+	local route_main = show_in_main_feed
+	local route_separate = show_separate_feed
+
+	local owner = get_companion_owner(skull_unit)
+	local local_player = get_local_player()
+	local is_allied = (owner and owner ~= local_player)
+
+	if is_allied and allied_feed_routing == "off" then
+		return
+	end
+
+	if is_allied then
+		if allied_feed_routing == "off" then return end
+		route_main = (allied_feed_routing == "main_feed_only" or allied_feed_routing == "both_feeds")
+		route_separate = (allied_feed_routing == "separate_feed_only" or allied_feed_routing == "both_feeds")
+	else
+		if my_feed_routing == "off" then return end
+	end
+
+	_our_message_route_main = route_main
+	_our_message_route_separate = route_separate
 	_is_our_message = true
 	Managers.event:trigger("event_add_combat_feed_message", msg)
 	_is_our_message = false
+	_our_message_route_main = nil
+	_our_message_route_separate = nil
 end
 
 mod:hook("HudElementCombatFeed", "event_add_combat_feed_message", function(func, self, message_text, ...)
@@ -328,8 +358,11 @@ mod:hook("HudElementCombatFeed", "event_add_combat_feed_message", function(func,
 		if not _is_our_message then
 			return
 		end
+		if _our_message_route_separate ~= nil and not _our_message_route_separate then
+			return
+		end
 	else
-		if _is_our_message and not show_in_main_feed then
+		if _is_our_message and _our_message_route_main ~= nil and not _our_message_route_main then
 			return
 		end
 	end
@@ -349,7 +382,7 @@ mod.update = function(dt)
 	local usp = Managers.state.unit_spawner
 	if not usp then return end
 
-	local check_all = mod:get("show_all_companions")
+	local check_all = (allied_feed_routing ~= "off")
 	local local_player = get_local_player()
 	
 	local players = Managers.player:players()
@@ -439,12 +472,14 @@ mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, s
 		if ctype == "skull_medic" and not show_servo_medic then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
 		if ctype == "skull" and not show_servo_lasgun then return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...) end
 
-		if not show_all_companions then
-			local owner = get_companion_owner(companion_unit)
-			local local_player = get_local_player()
-			if not owner or owner ~= local_player then
-				return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...)
-			end
+		local owner = get_companion_owner(companion_unit)
+		local local_player = get_local_player()
+		local is_allied = (owner and owner ~= local_player)
+
+		if is_allied and allied_feed_routing == "off" then
+			return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...)
+		elseif not is_allied and my_feed_routing == "off" then
+			return func(self, unit, is_killer, breed_or_nil, slot_or_nil, ...)
 		end
 
 		local name = get_companion_display_name(companion_unit, ctype)
@@ -603,30 +638,57 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 			should_show_companion = false
 		end
 
-		if should_show_companion and not show_all_companions then
+		if should_show_companion and allied_feed_routing == "off" then
 			local owner = get_companion_owner(actual_attacking_unit)
 			local local_player = get_local_player()
 			if not owner or owner ~= local_player then
 				should_show_companion = false
 			end
 		end
+		local local_player = get_local_player()
+		local is_allied = (owner and owner ~= local_player)
+
+		if is_allied and allied_feed_routing == "off" then
+			should_show_companion = false
+		elseif not is_allied and my_feed_routing == "off" then
+			should_show_companion = false
+		end
 	end
 
 	if is_companion and should_show_companion then
-		if show_separate_feed and companion_feed_element then
+		local route_main = show_in_main_feed
+		local route_separate = show_separate_feed
+
+		local owner = get_companion_owner(actual_attacking_unit)
+		local local_player = get_local_player()
+		local is_allied = (owner and owner ~= local_player)
+
+		if is_allied then
+			route_main = (allied_feed_routing == "main_feed_only" or allied_feed_routing == "both_feeds")
+			route_separate = (allied_feed_routing == "separate_feed_only" or allied_feed_routing == "both_feeds")
+		end
+
+		if route_separate and companion_feed_element then
 			func(companion_feed_element, actual_attacking_unit, attacked_unit, weapon_item_or_damage_profile, ...)
 			if stack_non_elite_kills then
 				_maybe_merge_companion_kill(companion_feed_element, actual_attacking_unit, attacked_unit)
 			end
 		end
-		if show_in_main_feed or not show_separate_feed then
+		if route_main then
 			func(self, actual_attacking_unit, attacked_unit, weapon_item_or_damage_profile, ...)
 			if stack_non_elite_kills then
 				_maybe_merge_companion_kill(self, actual_attacking_unit, attacked_unit)
 			end
 		end
 	else
-		func(self, actual_attacking_unit, attacked_unit, weapon_item_or_damage_profile, ...)
+		local pass_unit = actual_attacking_unit
+		if is_companion and not should_show_companion then
+			local owner = get_companion_owner(actual_attacking_unit)
+			if owner and owner.player_unit and ALIVE[owner.player_unit] then
+				pass_unit = owner.player_unit
+			end
+		end
+		func(self, pass_unit, attacked_unit, weapon_item_or_damage_profile, ...)
 	end
 end)
 

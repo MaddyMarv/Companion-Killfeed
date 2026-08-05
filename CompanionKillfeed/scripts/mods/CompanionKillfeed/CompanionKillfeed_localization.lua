@@ -5,8 +5,8 @@ return {
 	mod_description = {
 		en = "Shows companion kills (dog, servo skull) in the killfeed with their name and slot color",
 	},
-	feed_display = {
-		en = "Feed Display",
+	routing = {
+		en = "Routing",
 	},
 	companion_types = {
 		en = "Companion Types",
@@ -41,14 +41,23 @@ return {
 	tab_companions = {
 		en = "Companions",
 	},
-	show_in_main_feed = {
-		en = "Show in vanilla killfeed",
+	my_feed_routing = {
+		en = "My Kills Routing",
 	},
-	show_separate_feed = {
-		en = "Show in separate companion feed",
+	both_feeds = {
+		en = "Both feeds",
+	},
+	allied_feed_routing = {
+		en = "Allied Kills Routing",
+	},
+	main_feed_only = {
+		en = "Main feed only",
+	},
+	separate_feed_only = {
+		en = "Separate feed only",
 	},
 	show_dog = {
-		en = "Track dog kills",
+		en = "Track Cyber-Mastiff kills",
 	},
 	show_servo_flame = {
 		en = "Track Flame Skull kills",
@@ -62,8 +71,8 @@ return {
 	show_servo_medic = {
 		en = "Track Medic Skull revives",
 	},
-	show_all_companions = {
-		en = "Show all player's companions (off = your companion only)",
+	off = {
+		en = "Off (Do not show)",
 	},
 	show_non_elite_kills = {
 		en = "Show kills on non-elites, bosses, or specials",
@@ -75,15 +84,18 @@ return {
 		en = "Name format",
 	},
 	companion_name = {
-		en = "Companion name (e.g. \"Rex\")",
+		en = "Companion Name (e.g. Byte)",
+	},
+	companion_type_only = {
+		en = "Type Only (e.g. Cyber-Mastiff)",
 	},
 	companion_and_player = {
-		en = "Companion name (Player name)",
+		en = "Companion & Player (e.g. Byte (Maddy))",
 	},
 	player_possessive = {
-		en = "Player's Companion (e.g. \"Verdict's Dog Byte\")",
+		en = "Player's Companion (e.g. Maddy's Cyber-Mastiff Byte)",
 	},
 	player_name = {
-		en = "Player name only",
+		en = "Player Name Only (e.g. Maddy)",
 	},
 }
