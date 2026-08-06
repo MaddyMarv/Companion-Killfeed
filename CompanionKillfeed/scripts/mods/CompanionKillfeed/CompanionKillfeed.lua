@@ -161,11 +161,20 @@ local function get_companion_type(unit)
 end
 
 local function get_companion_display_name(unit, ctype)
+	local companion_type_name = "Servo Skull"
+	if ctype == "dog" then
+		companion_type_name = "Cyber-Mastiff"
+	elseif ctype == "skull_flame" then
+		companion_type_name = "Flame Skull"
+	elseif ctype == "skull_medic" then
+		companion_type_name = "Medic Skull"
+	end
+
 	local owner = get_companion_owner(unit)
-	if not owner then return nil end
+	if not owner then return companion_type_name end
 
 	local profile = owner:profile()
-	if not profile then return nil end
+	if not profile then return companion_type_name end
 
 	local given = nil
 
