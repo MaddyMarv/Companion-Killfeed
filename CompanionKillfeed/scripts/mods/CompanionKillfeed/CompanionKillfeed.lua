@@ -70,6 +70,8 @@ end
 mod.on_game_state_changed = function(status, state)
 	if state == "GameplayStateRun" and status == "exit" then
 		companion_feed_element = nil
+		if _companion_owner_cache then table.clear(_companion_owner_cache) end
+		if _not_companion_cache then table.clear(_not_companion_cache) end
 	end
 end
 
@@ -105,8 +107,14 @@ local function get_all_companion_units(spawner_ext)
 	return units
 end
 
+local _companion_owner_cache = setmetatable({}, { __mode = "k" })
+local _not_companion_cache = setmetatable({}, { __mode = "k" })
+
 local function get_companion_owner(unit)
-	if not Managers.player then return nil end
+	if not Managers.player or not unit then return nil end
+
+	if _companion_owner_cache[unit] then return _companion_owner_cache[unit] end
+	if _not_companion_cache[unit] then return nil end
 
 	local players = Managers.player:players()
 	for _, player in pairs(players) do
@@ -117,6 +125,7 @@ local function get_companion_owner(unit)
 				local companions = get_all_companion_units(spawner_ext)
 				for _, spawned_unit in ipairs(companions) do
 					if spawned_unit == unit then
+						_companion_owner_cache[unit] = player
 						return player
 					end
 				end
@@ -124,6 +133,7 @@ local function get_companion_owner(unit)
 		end
 	end
 
+	_not_companion_cache[unit] = true
 	return nil
 end
 
@@ -702,6 +712,8 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 end)
 
 local COMPANION_DAMAGE_PROFILES = {
+	["cyber_mastiff_push_close"] = "dog",
+	["cyber_mastiff_push_aoe"] = "dog",
 	["adamant_companion_pounce"] = "dog",
 	["adamant_companion_monster_pounce"] = "dog",
 	["adamant_companion_human_pounce"] = "dog",
@@ -728,6 +740,11 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 
 	local attacker_is_companion = buffer_data.attacking_unit and unit_is_companion(buffer_data.attacking_unit)
 	local is_companion_profile = false
+	
+	local current_attacker_player = nil
+	if buffer_data.attacking_unit then
+		current_attacker_player = get_companion_owner(buffer_data.attacking_unit) or (Managers.player and Managers.player:player_by_unit(buffer_data.attacking_unit))
+	end
 
 	if attacker_is_companion then
 		last_companion_killer_unit = buffer_data.attacking_unit
@@ -749,9 +766,10 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 			last_companion_killer_type = companion_type
 			
 			if companion_type == "dog" and buffer_data.attacked_unit then
-				_dog_targets[buffer_data.attacked_unit] = now
+				local is_pounce = string.find(profile_name, "pounce") ~= nil
+				_dog_targets[buffer_data.attacked_unit] = { time = now, player = current_attacker_player, is_pounce = is_pounce }
 			elseif companion_type == "skull_flame" and buffer_data.attacked_unit then
-				_flame_skull_targets[buffer_data.attacked_unit] = now
+				_flame_skull_targets[buffer_data.attacked_unit] = { time = now, player = current_attacker_player }
 			end
 		elseif string.find(profile_name, "companion") or string.find(profile_name, "servo") or string.find(profile_name, "skull") then
 			is_companion_profile = true
@@ -764,29 +782,41 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 				if not string.find(profile_name, "grenade") and not string.find(profile_name, "liquid") then
 					is_burn = true
 				end
-			elseif string.find(profile_name, "bleed") or string.find(profile_name, "electro") or string.find(profile_name, "shock") or string.find(profile_name, "lightning") then
+			elseif string.find(profile_name, "bleed") or string.find(profile_name, "electro") or (string.find(profile_name, "shock") and string.find(profile_name, "interval")) or string.find(profile_name, "lightning") then
 				is_bleed_or_shock = true
 			end
 
 			if is_burn then
 				local attacked_unit = buffer_data.attacked_unit
-				if attacked_unit and _flame_skull_targets[attacked_unit] and (now - _flame_skull_targets[attacked_unit] < 10) then
-					is_flame_skull_dot = true
+				if attacked_unit and _flame_skull_targets[attacked_unit] then
+					local target_info = _flame_skull_targets[attacked_unit]
+					if type(target_info) == "table" and (now - target_info.time < 10) then
+						if target_info.player and current_attacker_player and target_info.player == current_attacker_player then
+							is_flame_skull_dot = true
+						end
+					end
 				end
 			elseif is_bleed_or_shock then
 				local attacked_unit = buffer_data.attacked_unit
-				if attacked_unit and _dog_targets[attacked_unit] and (now - _dog_targets[attacked_unit] < 10) then
-					is_dog_dot = true
+				if attacked_unit and _dog_targets[attacked_unit] then
+					local target_info = _dog_targets[attacked_unit]
+					if type(target_info) == "table" and (now - target_info.time < 10) then
+						if target_info.player and current_attacker_player and target_info.player == current_attacker_player then
+							is_dog_dot = true
+						end
+					end
 				end
 			end
 			
-			-- Reset trackers for non-companion attacks
 			if not attacker_is_companion and buffer_data.attacked_unit then
 				if not is_burn then
 					_flame_skull_targets[buffer_data.attacked_unit] = nil
 				end
 				if not is_bleed_or_shock then
-					_dog_targets[buffer_data.attacked_unit] = nil
+					local dog_info = _dog_targets[buffer_data.attacked_unit]
+					if not (dog_info and dog_info.is_pounce and (now - dog_info.time < 10)) then
+						_dog_targets[buffer_data.attacked_unit] = nil
+					end
 				end
 				if not is_burn and not is_bleed_or_shock then
 					_companion_targets[buffer_data.attacked_unit] = nil
