@@ -726,7 +726,10 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 	local is_dog_dot = false
 	local now = Managers.time and Managers.time:time("gameplay") or 0
 
-	if buffer_data.attacking_unit and unit_is_companion(buffer_data.attacking_unit) then
+	local attacker_is_companion = buffer_data.attacking_unit and unit_is_companion(buffer_data.attacking_unit)
+	local is_companion_profile = false
+
+	if attacker_is_companion then
 		last_companion_killer_unit = buffer_data.attacking_unit
 		last_companion_killer_type = get_companion_type(buffer_data.attacking_unit)
 		if buffer_data.attacked_unit and now > 0 then
@@ -742,6 +745,7 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 		local companion_type = COMPANION_DAMAGE_PROFILES[profile_name]
 		
 		if companion_type then
+			is_companion_profile = true
 			last_companion_killer_type = companion_type
 			
 			if companion_type == "dog" and buffer_data.attacked_unit then
@@ -750,23 +754,42 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 				_flame_skull_targets[buffer_data.attacked_unit] = now
 			end
 		elseif string.find(profile_name, "companion") or string.find(profile_name, "servo") or string.find(profile_name, "skull") then
+			is_companion_profile = true
 			last_companion_killer_type = "skull"
-		elseif string.find(profile_name, "burn") or string.find(profile_name, "flam") or string.find(profile_name, "fire") or string.find(profile_name, "soulblaze") or string.find(profile_name, "warpfire") then
-			if not string.find(profile_name, "grenade") and not string.find(profile_name, "liquid") then
+		else
+			local is_burn = false
+			local is_bleed_or_shock = false
+			
+			if (string.find(profile_name, "burn") or string.find(profile_name, "flam") or string.find(profile_name, "fire") or string.find(profile_name, "soulblaze") or string.find(profile_name, "warpfire")) then
+				if not string.find(profile_name, "grenade") and not string.find(profile_name, "liquid") then
+					is_burn = true
+				end
+			elseif string.find(profile_name, "bleed") or string.find(profile_name, "electro") or string.find(profile_name, "shock") or string.find(profile_name, "lightning") then
+				is_bleed_or_shock = true
+			end
+
+			if is_burn then
 				local attacked_unit = buffer_data.attacked_unit
-				if attacked_unit and _flame_skull_targets[attacked_unit] then
-					if now - _flame_skull_targets[attacked_unit] < 10 then
-						is_flame_skull_dot = true
-					end
+				if attacked_unit and _flame_skull_targets[attacked_unit] and (now - _flame_skull_targets[attacked_unit] < 10) then
+					is_flame_skull_dot = true
+				end
+			elseif is_bleed_or_shock then
+				local attacked_unit = buffer_data.attacked_unit
+				if attacked_unit and _dog_targets[attacked_unit] and (now - _dog_targets[attacked_unit] < 10) then
+					is_dog_dot = true
 				end
 			end
-		elseif string.find(profile_name, "bleed") then
-			is_dog_dot = true
-		elseif string.find(profile_name, "electro") or string.find(profile_name, "shock") or string.find(profile_name, "lightning") then
-			local attacked_unit = buffer_data.attacked_unit
-			if attacked_unit and _dog_targets[attacked_unit] then
-				if now - _dog_targets[attacked_unit] < 10 then
-					is_dog_dot = true
+			
+			-- Reset trackers for non-companion attacks
+			if not attacker_is_companion and buffer_data.attacked_unit then
+				if not is_burn then
+					_flame_skull_targets[buffer_data.attacked_unit] = nil
+				end
+				if not is_bleed_or_shock then
+					_dog_targets[buffer_data.attacked_unit] = nil
+				end
+				if not is_burn and not is_bleed_or_shock then
+					_companion_targets[buffer_data.attacked_unit] = nil
 				end
 			end
 		end
@@ -829,30 +852,12 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 		}
 	end
 
-	local is_dot = false
-	if profile_name then
-		if string.find(profile_name, "burn") or string.find(profile_name, "flam") or string.find(profile_name, "fire") or string.find(profile_name, "bleed") or string.find(profile_name, "electro") or string.find(profile_name, "shock") or string.find(profile_name, "lightning") then
-			if not string.find(profile_name, "grenade") and not string.find(profile_name, "liquid") then
-				is_dot = true
-			end
-		end
-	end
-
 	if buffer_data.attack_result == "died" and buffer_data.attacked_unit then
 		local c_unit = nil
 		if buffer_data.attacking_unit and unit_is_companion(buffer_data.attacking_unit) then
 			c_unit = buffer_data.attacking_unit
 		elseif last_companion_killer_unit then
 			c_unit = last_companion_killer_unit
-		elseif is_dot and _companion_targets[buffer_data.attacked_unit] then
-			local entry = _companion_targets[buffer_data.attacked_unit]
-			if now - entry.time < 10 and entry.unit and ALIVE[entry.unit] then
-				local dot_attacker_owner = buffer_data.attacking_unit and (get_companion_owner(buffer_data.attacking_unit) or (Managers.player and Managers.player:player_by_unit(buffer_data.attacking_unit)))
-				local companion_owner = get_companion_owner(entry.unit)
-				if dot_attacker_owner and companion_owner and dot_attacker_owner == companion_owner then
-					c_unit = entry.unit
-				end
-			end
 		end
 
 		if c_unit and ALIVE[c_unit] then
