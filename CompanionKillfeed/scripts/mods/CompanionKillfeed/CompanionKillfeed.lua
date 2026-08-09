@@ -292,13 +292,13 @@ local function colorize(text, color)
 end
 
 local function get_victim_display_name(unit)
-	if not unit or not ALIVE[unit] then return "Enemy" end
+	if not unit or not ALIVE[unit] then return "Heretic" end
 	local ext   = ScriptUnit.has_extension(unit, "unit_data_system")
 	local breed = ext and ext.breed and ext:breed()
 	if breed and breed.display_name then
 		return Localize(breed.display_name)
 	end
-	return "Enemy"
+	return "Heretic"
 end
 
 local function inject_hud_element(instance)
@@ -508,7 +508,11 @@ mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, s
 		end
 	end
 
-	return func(self, unit, ...)
+	local result = func(self, unit, ...)
+	if result == nil then
+		return "Heretic"
+	end
+	return result
 end)
 
 local main_feed_element = nil
@@ -609,8 +613,13 @@ local function _maybe_merge_companion_kill(self, attacking_unit, attacked_unit)
 	end
 
 	if new_notification.count > 1 then
-		local killer = self:_get_unit_presentation_name(attacking_unit, true, nil, 1)
-		local victim = self:_get_unit_presentation_name(attacked_unit, false, breed_or_nil, 1)
+		local killer = self:_get_unit_presentation_name(attacking_unit) or "Unknown"
+		local victim = self:_get_unit_presentation_name(attacked_unit)
+		if not victim and breed_or_nil and breed_or_nil.display_name then
+			victim = Localize(breed_or_nil.display_name)
+		end
+		victim = victim or "Heretic"
+		
 		temp_kill_message_params.killer = killer
 		temp_kill_message_params.victim = victim
 		local text = self:_localize("loc_hud_combat_feed_kill_message", true, temp_kill_message_params)
