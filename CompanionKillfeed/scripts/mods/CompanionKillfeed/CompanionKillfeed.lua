@@ -579,8 +579,11 @@ local temp_kill_message_params = { killer = "n/a", victim = "n/a" }
 
 local function _maybe_merge_companion_kill(self, attacking_unit, attacked_unit)
 	if not self._notifications or not self._remove_notification or not self._set_text then
-		return
+		return false
 	end
+	
+	local is_player = Managers.player and Managers.player:player_by_unit(attacked_unit) ~= nil
+	if is_player then return false end
 
 	local unit_data_ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 	local breed_or_nil = unit_data_ext and unit_data_ext:breed()
@@ -636,6 +639,33 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 	end
 	if attacked_unit and now > 0 then
 		_processed_kills[attacked_unit] = now
+	end
+
+	local killer_name = self:_get_unit_presentation_name(attacking_unit)
+	local victim_name = self:_get_unit_presentation_name(attacked_unit)
+
+	local is_player_killer = Managers.player and Managers.player:player_by_unit(attacking_unit) ~= nil
+	local is_companion_killer = attacking_unit and unit_is_companion(attacking_unit)
+	local is_teammate_killer = is_player_killer or is_companion_killer
+
+	local is_player_victim = Managers.player and Managers.player:player_by_unit(attacked_unit) ~= nil
+	local is_companion_victim = attacked_unit and unit_is_companion(attacked_unit)
+	local is_teammate_victim = is_player_victim or is_companion_victim
+
+	if is_teammate_killer and victim_name == "Heretic" then
+		return
+	end
+	
+	if is_teammate_victim and killer_name == "Heretic" then
+		return
+	end
+
+	if is_teammate_killer and killer_name == "Heretic" then
+		return
+	end
+
+	if is_teammate_victim and victim_name == "Heretic" then
+		return
 	end
 
 	local actual_attacking_unit = attacking_unit
