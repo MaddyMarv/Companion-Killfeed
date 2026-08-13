@@ -80,8 +80,14 @@ return {
 	stack_non_elite_kills = {
 		en = "Stack/Combine non-elites, bosses, or specials",
 	},
-	name_format = {
-		en = "Name format",
+	dog_name_format = {
+		en = "Dog Name format",
+	},
+	skull_name_format = {
+		en = "Skull Name format",
+	},
+	fallback_name_format = {
+		en = "Fallback Name format",
 	},
 	companion_name = {
 		en = "Companion Name (e.g. Byte)",

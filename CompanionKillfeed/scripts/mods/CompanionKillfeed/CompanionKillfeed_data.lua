@@ -60,7 +60,7 @@ return {
 				tab         = mod:localize("tab_general"),
 				sub_widgets = {
 					{
-						setting_id  = "name_format",
+						setting_id  = "dog_name_format",
 						type        = "dropdown",
 						options     = {
 							{ value = "companion_name",       text = "companion_name"       },
@@ -70,6 +70,28 @@ return {
 							{ value = "player_name",          text = "player_name"          },
 						},
 						default_value = "companion_name",
+					},
+					{
+						setting_id  = "skull_name_format",
+						type        = "dropdown",
+						options     = {
+							{ value = "companion_name",       text = "companion_name"       },
+							{ value = "companion_type_only",  text = "companion_type_only"  },
+							{ value = "player_possessive",    text = "player_possessive"    },
+							{ value = "companion_and_player", text = "companion_and_player" },
+							{ value = "player_name",          text = "player_name"          },
+						},
+						default_value = "companion_name",
+					},
+					{
+						setting_id  = "fallback_name_format",
+						type        = "dropdown",
+						options     = {
+							{ value = "companion_type_only",  text = "companion_type_only"  },
+							{ value = "player_possessive",    text = "player_possessive"    },
+							{ value = "player_name",          text = "player_name"          },
+						},
+						default_value = "companion_type_only",
 					}
 				}
 			},

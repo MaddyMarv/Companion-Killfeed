@@ -10,7 +10,9 @@ local show_servo_hacker   = true
 local show_servo_lasgun   = true
 local show_servo_medic    = true
 local show_non_elite_kills = false
-local name_format         = "companion_name"
+local dog_name_format     = "companion_name"
+local skull_name_format   = "companion_name"
+local fallback_name_format = "companion_type_only"
 local offset_x            = 0
 local offset_y            = 300
 
@@ -26,7 +28,9 @@ local function cache_settings()
 	show_servo_medic    = mod:get("show_servo_medic")
 	show_non_elite_kills = mod:get("show_non_elite_kills")
 	stack_non_elite_kills = mod:get("stack_non_elite_kills")
-	name_format         = mod:get("name_format")
+	dog_name_format     = mod:get("dog_name_format") or "companion_name"
+	skull_name_format   = mod:get("skull_name_format") or "companion_name"
+	fallback_name_format = mod:get("fallback_name_format") or "companion_type_only"
 	offset_x            = mod:get("offset_x") or 0
 	offset_y            = mod:get("offset_y") or 300
 end
@@ -242,7 +246,16 @@ local function get_companion_display_name(unit, ctype)
 		companion_type_name = "Medic Skull"
 	end
 
-	if name_format == "companion_type_only" then
+	local current_format = skull_name_format
+	if ctype == "dog" then
+		current_format = dog_name_format
+	else
+		if not given or given == "" then
+			current_format = fallback_name_format
+		end
+	end
+
+	if current_format == "companion_type_only" then
 		return icon .. companion_type_name
 	end
 
@@ -251,14 +264,16 @@ local function get_companion_display_name(unit, ctype)
 		base_name = companion_type_name
 	end
 
-	if name_format == "companion_and_player" then
+	if current_format == "companion_and_player" then
 		return icon .. string.format("%s (%s)", base_name, char_name)
-	elseif name_format == "player_possessive" then
+	elseif current_format == "player_possessive" then
 		if given and given ~= "" then
 			return icon .. string.format("%s's %s %s", char_name, companion_type_name, given)
 		else
 			return icon .. string.format("%s's %s", char_name, companion_type_name)
 		end
+	elseif current_format == "player_name" then
+		return icon .. char_name
 	end
 
 	if given and given ~= "" then
