@@ -79,7 +79,7 @@ mod.on_game_state_changed = function(status, state)
 	end
 end
 
-local DEFAULT_COLOR = { 208, 136, 48 }
+local DEFAULT_COLOR = { 255, 208, 136, 48 }
 
 local Breed = require("scripts/utilities/breed")
 
