@@ -15,4 +15,5 @@ Standalone mod that attributes companion kills (such as the Dog and Servo Skull)
 - Combat Kill Filters (Show Kills and Stack/Combine on Non-Elites, Bosses, or Specials)
 - Companion Tracking Filters (Cyber-Mastiff Kills, Lasgun Skull Kills, Flame Skull Kills, Hacker Skull Hacks, Medic Skull Revives)
 
-[b]Links:[/b] [url=https://github.com/MaddyMarv/companion-killfeed]Source Code[/url] | [url=https://www.nexusmods.com/profile/indicabunny]Nexus Mods Profile[/url] | [url=https://ko-fi.com/indicabunny]Support Me on Ko-fi[/url]
+[b]Links:[/b]
+[url=https://github.com/MaddyMarv/companion-killfeed]Source Code[/url] | [url=https://www.nexusmods.com/profile/indicabunny]Nexus Mods Profile[/url] | [url=https://ko-fi.com/indicabunny]Support Me on Ko-fi[/url]
