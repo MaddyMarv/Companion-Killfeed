@@ -12,7 +12,7 @@ Standalone mod that attributes companion kills (such as the Dog and Servo Skull)
 - Skull Name Format [Companion Name, Type Only, Player's Companion, Companion & Player, Player Name Only]
 - Fallback Name Format [Type Only, Player's Companion, Player Name Only]
 
-**Feed Filters:**
+**Feed Filters**
 - Combat Kill Filters (Show Kills and Stack/Combine on Non-Elites, Bosses, or Specials)
 - Companion Tracking Filters (Cyber-Mastiff Kills, Lasgun Skull Kills, Flame Skull Kills, Hacker Skull Hacks, Medic Skull Revives)
 
