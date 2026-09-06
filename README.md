@@ -1,7 +1,7 @@
 ### [Companion Killfeed](https://www.nexusmods.com/warhammer40kdarktide/mods/1126)
 <img width="1045" height="800" alt="image" src="https://github.com/user-attachments/assets/05d51cf2-e01e-469a-b024-b95132c4e8be" />
 
-Standalone mod that shows companion kills (such as the Dog and Servo Skull) in the combat killfeed.
+Shows companion kills (Mastiff, Servo-Skull) under their own name in the killfeed instead of yours. Supports custom pet names from ServoSkullNametag.
 
 **Options:**
 

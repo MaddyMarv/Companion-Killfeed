@@ -1,4 +1,4 @@
-Standalone mod that shows companion kills (such as the Dog and Servo Skull) in the combat killfeed.
+Shows companion kills (Mastiff, Servo-Skull) under their own name in the killfeed instead of yours. Supports custom pet names from ServoSkullNametag.
 
 [b]Options:[/b]
 
