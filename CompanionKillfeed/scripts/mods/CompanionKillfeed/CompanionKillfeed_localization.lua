@@ -4,7 +4,7 @@ return {
 		ru = "Лента убийств спутников",
 	},
 	mod_description = {
-		en = "Shows companion kills (dog, servo skull) in the killfeed with their name and slot color",
+		en = "Shows companion kills (Mastiff, Servo Skull) under their own name in the killfeed instead of yours.",
 		ru = "Companion Killfeed - Отображает убийства спутников (собака, сервочереп) в ленте убийств с их именем и цветом слота",
 	},
 	routing = {

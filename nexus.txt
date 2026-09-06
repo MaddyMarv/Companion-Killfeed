@@ -1,4 +1,4 @@
-Shows companion kills (Mastiff, Servo-Skull) under their own name in the killfeed instead of yours. Supports custom pet names from ServoSkullNametag.
+Shows companion kills (Mastiff, Servo Skull) under their own name in the killfeed instead of yours. Supports custom pet names from ServoSkullNametag.
 
 [b]Options:[/b]
 
