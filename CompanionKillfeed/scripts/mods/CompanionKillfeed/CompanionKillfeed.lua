@@ -405,6 +405,10 @@ mod:hook("HudElementCombatFeed", "event_add_combat_feed_message", function(func,
 end)
 
 mod.update = function(dt)
+	if not mod:is_enabled() then
+		return
+	end
+
 	if not STATES or not Managers.player or not Managers.state or not Managers.state.game_session then return end
 	
 	local time_manager = Managers.time
@@ -969,4 +973,44 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 	last_companion_killer_type = nil
 	last_companion_killer_unit = nil
 end)
+
+mod.on_disabled = function(initial_call)
+	if companion_feed_element then
+		companion_feed_element._combat_feed_enabled = false
+	end
+	table.clear(_companion_owner_cache)
+	table.clear(_not_companion_cache)
+	table.clear(_skull_prev_states)
+	table.clear(_processed_kills)
+	table.clear(_dog_targets)
+	table.clear(_flame_skull_targets)
+	table.clear(_companion_targets)
+	last_companion_killer_type = nil
+	last_companion_killer_unit = nil
+	current_revive_victim = nil
+end
+
+mod.on_enabled = function(initial_call)
+	cache_settings()
+	if companion_feed_element then
+		companion_feed_element._combat_feed_enabled = show_separate_feed
+	end
+end
+
+mod.on_unload = function(exit_game)
+	if companion_feed_element then
+		companion_feed_element._combat_feed_enabled = false
+		companion_feed_element = nil
+	end
+	table.clear(_companion_owner_cache)
+	table.clear(_not_companion_cache)
+	table.clear(_skull_prev_states)
+	table.clear(_processed_kills)
+	table.clear(_dog_targets)
+	table.clear(_flame_skull_targets)
+	table.clear(_companion_targets)
+	last_companion_killer_type = nil
+	last_companion_killer_unit = nil
+	current_revive_victim = nil
+end
 
