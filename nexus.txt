@@ -1,7 +1,7 @@
 Shows companion kills (Mastiff, Servo-Skull) under their own name in the killfeed instead of yours. Supports custom pet names from ServoSkullNametag.
 
-[b]Options:[/b]
-
+[b]Mod Settings / Commands:[/b]
+[spoiler]
 [b]General Settings[/b]
 - My Kills Routing [Main Feed Only, Separate Feed Only, Both Feeds, Off (Do Not Show)]
 - Allied Kills Routing [Main Feed Only, Separate Feed Only, Both Feeds, Off (Do Not Show)]
@@ -14,6 +14,7 @@ Shows companion kills (Mastiff, Servo-Skull) under their own name in the killfee
 [b]Filters[/b]
 - Combat Kill Filters (Show Kills and Stack/Combine on Non-Elites, Bosses, or Specials)
 - Companion Tracking Filters (Cyber-Mastiff Kills, Lasgun Skull Kills, Flame Skull Kills, Hacker Skull Hacks, Medic Skull Revives)
+[/spoiler]
 
 [b]Links:[/b]
 [url=https://github.com/MaddyMarv/companion-killfeed]Source Code[/url] | [url=https://www.nexusmods.com/profile/indicabunny]Nexus Mods Profile[/url] | [url=https://ko-fi.com/indicabunny]Support Me on Ko-fi[/url]
