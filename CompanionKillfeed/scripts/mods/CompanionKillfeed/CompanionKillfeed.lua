@@ -10,11 +10,16 @@ local show_servo_hacker   = true
 local show_servo_lasgun   = true
 local show_servo_medic    = true
 local show_non_elite_kills = false
+local stack_non_elite_kills = false
 local dog_name_format     = "companion_name"
 local skull_name_format   = "companion_name"
 local fallback_name_format = "companion_type_only"
 local offset_x            = 0
 local offset_y            = 300
+
+local companion_feed_element = nil
+local _companion_owner_cache = setmetatable({}, { __mode = "k" })
+local _not_companion_cache = setmetatable({}, { __mode = "k" })
 
 local function cache_settings()
 	my_feed_routing     = mod:get("my_feed_routing") or "main_feed_only"
@@ -59,7 +64,6 @@ mod.on_setting_changed = function(setting_id)
 	end
 end
 
-local companion_feed_element = nil
 local last_companion_killer_type = nil
 local last_companion_killer_unit = nil
 local lazy_identify
@@ -110,9 +114,6 @@ local function get_all_companion_units(spawner_ext)
 	end
 	return units
 end
-
-local _companion_owner_cache = setmetatable({}, { __mode = "k" })
-local _not_companion_cache = setmetatable({}, { __mode = "k" })
 
 local function get_companion_owner(unit)
 	if not Managers.player or not unit then return nil end
@@ -718,14 +719,14 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 			should_show_companion = false
 		end
 
+		local owner = get_companion_owner(actual_attacking_unit)
+		local local_player = get_local_player()
+
 		if should_show_companion and allied_feed_routing == "off" then
-			local owner = get_companion_owner(actual_attacking_unit)
-			local local_player = get_local_player()
 			if not owner or owner ~= local_player then
 				should_show_companion = false
 			end
 		end
-		local local_player = get_local_player()
 		local is_allied = (owner and owner ~= local_player)
 
 		if is_allied and allied_feed_routing == "off" then
