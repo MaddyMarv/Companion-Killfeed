@@ -1,59 +1,71 @@
 local mod = get_mod("CompanionKillfeed")
 
-local show_in_main_feed   = true
-local show_separate_feed  = false
-local my_feed_routing     = "main_feed_only"
+local show_in_main_feed = true
+local show_separate_feed = false
+local my_feed_routing = "main_feed_only"
 local allied_feed_routing = "main_feed_only"
-local show_dog            = true
-local show_servo_flame    = true
-local show_servo_hacker   = true
-local show_servo_lasgun   = true
-local show_servo_medic    = true
+local show_dog = true
+local show_servo_flame = true
+local show_servo_hacker = true
+local show_servo_lasgun = true
+local show_servo_medic = true
 local show_non_elite_kills = false
 local stack_non_elite_kills = false
-local dog_name_format     = "companion_name"
-local skull_name_format   = "companion_name"
+local dog_name_format = "companion_name"
+local skull_name_format = "companion_name"
 local fallback_name_format = "companion_type_only"
-local offset_x            = 0
-local offset_y            = 300
+local offset_x = 0
+local offset_y = 300
 
 local companion_feed_element = nil
 local _companion_owner_cache = setmetatable({}, { __mode = "k" })
 local _not_companion_cache = setmetatable({}, { __mode = "k" })
+local _skull_prev_states = setmetatable({}, { __mode = "k" })
 
 local function cache_settings()
-	my_feed_routing     = mod:get("my_feed_routing") or "main_feed_only"
-	show_in_main_feed   = (my_feed_routing == "main_feed_only" or my_feed_routing == "both_feeds")
-	show_separate_feed  = (my_feed_routing == "separate_feed_only" or my_feed_routing == "both_feeds")
+	my_feed_routing = mod:get("my_feed_routing") or "main_feed_only"
+	show_in_main_feed = (my_feed_routing == "main_feed_only" or my_feed_routing == "both_feeds")
+	show_separate_feed = (my_feed_routing == "separate_feed_only" or my_feed_routing == "both_feeds")
 	allied_feed_routing = mod:get("allied_feed_routing") or "main_feed_only"
-	show_dog            = mod:get("show_dog")
-	show_servo_flame    = mod:get("show_servo_flame")
-	show_servo_hacker   = mod:get("show_servo_hacker")
-	show_servo_lasgun   = mod:get("show_servo_lasgun")
-	show_servo_medic    = mod:get("show_servo_medic")
+	show_dog = mod:get("show_dog")
+	show_servo_flame = mod:get("show_servo_flame")
+	show_servo_hacker = mod:get("show_servo_hacker")
+	show_servo_lasgun = mod:get("show_servo_lasgun")
+	show_servo_medic = mod:get("show_servo_medic")
 	show_non_elite_kills = mod:get("show_non_elite_kills")
 	stack_non_elite_kills = mod:get("stack_non_elite_kills")
-	dog_name_format     = mod:get("dog_name_format") or "companion_name"
-	skull_name_format   = mod:get("skull_name_format") or "companion_name"
+	dog_name_format = mod:get("dog_name_format") or "companion_name"
+	skull_name_format = mod:get("skull_name_format") or "companion_name"
 	fallback_name_format = mod:get("fallback_name_format") or "companion_type_only"
-	offset_x            = mod:get("offset_x") or 0
-	offset_y            = mod:get("offset_y") or 300
+	offset_x = mod:get("offset_x") or 0
+	offset_y = mod:get("offset_y") or 300
 end
 
 mod.on_all_mods_loaded = cache_settings
 
 mod.on_setting_changed = function(setting_id)
 	cache_settings()
-	if companion_feed_element and companion_feed_element.set_scenegraph_position and companion_feed_element._ui_scenegraph then
+	table.clear(_skull_prev_states)
+	if
+		companion_feed_element
+		and companion_feed_element.set_scenegraph_position
+		and companion_feed_element._ui_scenegraph
+	then
 		local has_combat_feed = false
 		local has_pivot = false
 		local has_background = false
 		for k, _ in pairs(companion_feed_element._ui_scenegraph) do
-			if k == "combat_feed" then has_combat_feed = true end
-			if k == "pivot" then has_pivot = true end
-			if k == "background" then has_background = true end
+			if k == "combat_feed" then
+				has_combat_feed = true
+			end
+			if k == "pivot" then
+				has_pivot = true
+			end
+			if k == "background" then
+				has_background = true
+			end
 		end
-		
+
 		if has_combat_feed then
 			companion_feed_element:set_scenegraph_position("combat_feed", offset_x, offset_y, nil)
 		elseif has_pivot then
@@ -78,62 +90,98 @@ end
 mod.on_game_state_changed = function(status, state)
 	if state == "GameplayStateRun" and status == "exit" then
 		companion_feed_element = nil
-		if _companion_owner_cache then table.clear(_companion_owner_cache) end
-		if _not_companion_cache then table.clear(_not_companion_cache) end
+		if _companion_owner_cache then
+			table.clear(_companion_owner_cache)
+		end
+		if _not_companion_cache then
+			table.clear(_not_companion_cache)
+		end
 	end
 end
 
 local DEFAULT_COLOR = { 255, 208, 136, 48 }
 
 local Breed = require("scripts/utilities/breed")
+local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
+local UISettings = require("scripts/settings/ui/ui_settings")
+local TextUtilities = require("scripts/utilities/ui/text")
 
-local function get_all_companion_units(spawner_ext)
-	local units = {}
-	if spawner_ext._spawned_units then
-		for _, u in ipairs(spawner_ext._spawned_units) do
-			table.insert(units, u)
+local SKULL_RULES = {}
+for _, rule_name in ipairs({
+	"cryptic_servo_skull",
+	"cryptic_servo_skull_lasgun",
+	"cryptic_servo_skull_flamethrower",
+	"cryptic_servo_skull_hack",
+	"cryptic_servo_skull_inject_ally",
+}) do
+	local rule = rawget(SpecialRules, rule_name)
+	if rule then
+		SKULL_RULES[#SKULL_RULES + 1] = rule
+	end
+end
+
+local function collect_companion_units(spawner_ext, units)
+	table.clear(units)
+	local n = 0
+	local spawned = spawner_ext._spawned_units
+	if spawned then
+		for i = 1, #spawned do
+			n = n + 1
+			units[n] = spawned[i]
 		end
 	end
-	
-	local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
-	if SpecialRules and spawner_ext.spawned_unit_lookup then
-		local rules = {
-			"cryptic_servo_skull",
-			"cryptic_servo_skull_lasgun",
-			"cryptic_servo_skull_flamethrower",
-			"cryptic_servo_skull_hack",
-			"cryptic_servo_skull_inject_ally"
-		}
-		for _, rule_name in ipairs(rules) do
-			local success, rule = pcall(function() return SpecialRules[rule_name] end)
-			if success and rule then
-				local u = spawner_ext:spawned_unit_lookup(rule)
-				if u then table.insert(units, u) end
+	if spawner_ext.spawned_unit_lookup then
+		for i = 1, #SKULL_RULES do
+			local u = spawner_ext:spawned_unit_lookup(SKULL_RULES[i])
+			if u then
+				n = n + 1
+				units[n] = u
 			end
 		end
 	end
-	return units
+	return units, n
+end
+
+local function spawner_has_unit(spawner_ext, unit)
+	local spawned = spawner_ext._spawned_units
+	if spawned then
+		for i = 1, #spawned do
+			if spawned[i] == unit then
+				return true
+			end
+		end
+	end
+	if spawner_ext.spawned_unit_lookup then
+		for i = 1, #SKULL_RULES do
+			if spawner_ext:spawned_unit_lookup(SKULL_RULES[i]) == unit then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 local function get_companion_owner(unit)
-	if not Managers.player or not unit then return nil end
+	if not Managers.player or not unit then
+		return nil
+	end
 
-	if _companion_owner_cache[unit] then return _companion_owner_cache[unit] end
-	if _not_companion_cache[unit] then return nil end
+	local cached_owner = _companion_owner_cache[unit]
+	if cached_owner then
+		return cached_owner
+	end
+	if _not_companion_cache[unit] then
+		return nil
+	end
 
 	local players = Managers.player:players()
 	for _, player in pairs(players) do
 		local player_unit = player.player_unit
 		if player_unit and ALIVE[player_unit] then
 			local spawner_ext = ScriptUnit.has_extension(player_unit, "companion_spawner_system")
-			if spawner_ext then
-				local companions = get_all_companion_units(spawner_ext)
-				for _, spawned_unit in ipairs(companions) do
-					if spawned_unit == unit then
-						_companion_owner_cache[unit] = player
-						return player
-					end
-				end
+			if spawner_ext and spawner_has_unit(spawner_ext, unit) then
+				_companion_owner_cache[unit] = player
+				return player
 			end
 		end
 	end
@@ -150,7 +198,9 @@ local function unit_is_companion(unit)
 end
 
 local function get_companion_type(unit)
-	if not unit or not ALIVE[unit] then return "skull" end
+	if not unit or not ALIVE[unit] then
+		return "skull"
+	end
 
 	local ext = ScriptUnit.has_extension(unit, "unit_data_system")
 	local breed = ext and ext.breed and ext:breed()
@@ -162,11 +212,16 @@ local function get_companion_type(unit)
 	if owner and owner.player_unit and ALIVE[owner.player_unit] then
 		local spawner_ext = ScriptUnit.has_extension(owner.player_unit, "companion_spawner_system")
 		if spawner_ext then
-			local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
-			if SpecialRules and spawner_ext.spawned_unit_lookup then
-				if spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_flamethrower) == unit then return "skull_flame" end
-				if spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_hack) == unit then return "skull_hacker" end
-				if spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_inject_ally) == unit then return "skull_medic" end
+			if spawner_ext.spawned_unit_lookup then
+				if spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_flamethrower) == unit then
+					return "skull_flame"
+				end
+				if spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_hack) == unit then
+					return "skull_hacker"
+				end
+				if spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_inject_ally) == unit then
+					return "skull_medic"
+				end
 			end
 			return "skull_lasgun"
 		end
@@ -186,10 +241,14 @@ local function get_companion_display_name(unit, ctype)
 	end
 
 	local owner = get_companion_owner(unit)
-	if not owner then return companion_type_name end
+	if not owner then
+		return companion_type_name
+	end
 
 	local profile = owner:profile()
-	if not profile then return companion_type_name end
+	if not profile then
+		return companion_type_name
+	end
 
 	local given = nil
 
@@ -198,19 +257,18 @@ local function get_companion_display_name(unit, ctype)
 		if servo_mod and owner.player_unit and ALIVE[owner.player_unit] then
 			local spawner_ext = ScriptUnit.has_extension(owner.player_unit, "companion_spawner_system")
 			if spawner_ext then
-				local SpecialRules = require("scripts/settings/ability/special_rules_settings").special_rules
-				local skulls = {
-					base = spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_hack),
-					flame = spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_flamethrower),
-					med = spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_inject_ally),
-				}
-				for skull_type, skull_unit in pairs(skulls) do
-					if skull_unit == unit then
-						local name = servo_mod.get_skull_name(owner, skull_type)
-						if name and name ~= "" then
-							given = name
-						end
-						break
+				local skull_type = nil
+				if spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_hack) == unit then
+					skull_type = "base"
+				elseif spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_flamethrower) == unit then
+					skull_type = "flame"
+				elseif spawner_ext:spawned_unit_lookup(SpecialRules.cryptic_servo_skull_inject_ally) == unit then
+					skull_type = "med"
+				end
+				if skull_type then
+					local name = servo_mod.get_skull_name(owner, skull_type)
+					if name and name ~= "" then
+						given = name
 					end
 				end
 			end
@@ -226,25 +284,28 @@ local function get_companion_display_name(unit, ctype)
 	local icon = ""
 	local servo_mod = get_mod("ServoSkullNametag")
 	if servo_mod then
-		if ctype == "skull_flame" then icon = servo_mod:get("icon_flame") or ""
-		elseif ctype == "skull_medic" then icon = servo_mod:get("icon_med") or ""
-		elseif ctype == "skull_hacker" or ctype == "skull_lasgun" or ctype == "skull_base" or ctype == "skull" then icon = servo_mod:get("icon_base") or ""
-		elseif ctype == "dog" then icon = "" end
+		if ctype == "skull_flame" then
+			icon = servo_mod:get("icon_flame") or ""
+		elseif ctype == "skull_medic" then
+			icon = servo_mod:get("icon_med") or ""
+		elseif ctype == "skull_hacker" or ctype == "skull_lasgun" or ctype == "skull_base" or ctype == "skull" then
+			icon = servo_mod:get("icon_base") or ""
+		elseif ctype == "dog" then
+			icon = ""
+		end
 	else
-		if ctype == "skull_flame" then icon = ""
-		elseif ctype == "skull_medic" then icon = ""
-		elseif ctype == "skull_hacker" or ctype == "skull_lasgun" or ctype == "skull_base" or ctype == "skull" then icon = ""
-		elseif ctype == "dog" then icon = "" end
+		if ctype == "skull_flame" then
+			icon = ""
+		elseif ctype == "skull_medic" then
+			icon = ""
+		elseif ctype == "skull_hacker" or ctype == "skull_lasgun" or ctype == "skull_base" or ctype == "skull" then
+			icon = ""
+		elseif ctype == "dog" then
+			icon = ""
+		end
 	end
-	if icon and icon ~= "" then icon = icon .. " " end
-
-	local companion_type_name = "Servo Skull"
-	if ctype == "dog" then
-		companion_type_name = "Cyber-Mastiff"
-	elseif ctype == "skull_flame" then
-		companion_type_name = "Flame Skull"
-	elseif ctype == "skull_medic" then
-		companion_type_name = "Medic Skull"
+	if icon and icon ~= "" then
+		icon = icon .. " "
 	end
 
 	local current_format = skull_name_format
@@ -286,12 +347,13 @@ end
 
 local function get_companion_color(unit)
 	local owner = get_companion_owner(unit)
-	if not owner then return DEFAULT_COLOR end
+	if not owner then
+		return DEFAULT_COLOR
+	end
 
 	local player_slot = owner.slot and owner:slot()
 	if player_slot then
-		local UISettings = require("scripts/settings/ui/ui_settings")
-		if UISettings and UISettings.player_slot_colors then
+		if UISettings.player_slot_colors then
 			local slot_color = UISettings.player_slot_colors[player_slot]
 			if slot_color then
 				return slot_color
@@ -303,18 +365,7 @@ local function get_companion_color(unit)
 end
 
 local function colorize(text, color)
-	local Text = require("scripts/utilities/ui/text")
-	return Text.apply_color_to_text(text, color)
-end
-
-local function get_victim_display_name(unit)
-	if not unit or not ALIVE[unit] then return nil end
-	local ext   = ScriptUnit.has_extension(unit, "unit_data_system")
-	local breed = ext and ext.breed and ext:breed()
-	if breed and breed.display_name then
-		return Localize(breed.display_name)
-	end
-	return nil
+	return TextUtilities.apply_color_to_text(text, color)
 end
 
 local function inject_hud_element(instance)
@@ -336,11 +387,23 @@ end
 mod:hook_require("scripts/ui/hud/hud_elements_player_onboarding", inject_hud_element)
 mod:hook_require("scripts/ui/hud/hud_elements_player", inject_hud_element)
 
-local current_revive_victim = nil
-
-local _skull_prev_states = setmetatable({}, { __mode = "k" })
 local STATES = nil
-pcall(function() STATES = require("scripts/settings/companion/companion_servo_skull_settings").STATES end)
+pcall(function()
+	STATES = require("scripts/settings/companion/companion_servo_skull_settings").STATES
+end)
+
+local _update_units = {}
+local _attack_units = {}
+local _type_has_state = {}
+
+local function type_has_state(game_object_type)
+	local has_state = _type_has_state[game_object_type]
+	if has_state == nil then
+		has_state = Network.object_has_field(game_object_type, "state") and true or false
+		_type_has_state[game_object_type] = has_state
+	end
+	return has_state
+end
 
 local _is_our_message = false
 
@@ -348,16 +411,16 @@ local _our_message_route_main = nil
 local _our_message_route_separate = nil
 
 local function trigger_manual_feed(skull_unit, ctype, action_text)
-	local TextUtilities = require("scripts/utilities/ui/text")
-	
 	local name = get_companion_display_name(skull_unit, ctype)
-	if not name then return end
+	if not name then
+		return
+	end
 
 	local color = get_companion_color(skull_unit)
 	local colored_skull = TextUtilities.apply_color_to_text(name, color)
 
 	local msg = string.format("%s %s", colored_skull, action_text)
-	
+
 	local route_main = show_in_main_feed
 	local route_separate = show_separate_feed
 
@@ -370,11 +433,15 @@ local function trigger_manual_feed(skull_unit, ctype, action_text)
 	end
 
 	if is_allied then
-		if allied_feed_routing == "off" then return end
+		if allied_feed_routing == "off" then
+			return
+		end
 		route_main = (allied_feed_routing == "main_feed_only" or allied_feed_routing == "both_feeds")
 		route_separate = (allied_feed_routing == "separate_feed_only" or allied_feed_routing == "both_feeds")
 	else
-		if my_feed_routing == "off" then return end
+		if my_feed_routing == "off" then
+			return
+		end
 	end
 
 	_our_message_route_main = route_main
@@ -388,7 +455,7 @@ end
 
 mod:hook("HudElementCombatFeed", "event_add_combat_feed_message", function(func, self, message_text, ...)
 	lazy_identify(self)
-	
+
 	if self._is_companion_feed then
 		if not _is_our_message then
 			return
@@ -401,7 +468,7 @@ mod:hook("HudElementCombatFeed", "event_add_combat_feed_message", function(func,
 			return
 		end
 	end
-	
+
 	func(self, message_text, ...)
 end)
 
@@ -410,20 +477,38 @@ mod.update = function(dt)
 		return
 	end
 
-	if not STATES or not Managers.player or not Managers.state or not Managers.state.game_session then return end
-	
+	if not STATES or not (show_servo_medic or show_servo_hacker) then
+		return
+	end
+
+	local state_managers = Managers.state
+	if not Managers.player or not state_managers or not state_managers.game_session then
+		return
+	end
+
 	local time_manager = Managers.time
-	if not time_manager or not time_manager:has_timer("gameplay") or not time_manager:time("gameplay") then return end
+	if not time_manager or not time_manager:has_timer("gameplay") or not time_manager:time("gameplay") then
+		return
+	end
 
-	local game_mode = Managers.state.game_mode
-	if not game_mode or game_mode:game_mode_name() == "hub" then return end
+	local game_mode = state_managers.game_mode
+	if not game_mode or game_mode:game_mode_name() == "hub" then
+		return
+	end
 
-	local usp = Managers.state.unit_spawner
-	if not usp then return end
+	local usp = state_managers.unit_spawner
+	if not usp then
+		return
+	end
+
+	local gs = state_managers.game_session:game_session()
+	if not gs then
+		return
+	end
 
 	local check_all = (allied_feed_routing ~= "off")
 	local local_player = get_local_player()
-	
+
 	local players = Managers.player:players()
 	for _, player in pairs(players) do
 		if check_all or player == local_player then
@@ -431,47 +516,24 @@ mod.update = function(dt)
 			if pu and ALIVE[pu] then
 				local spawner = ScriptUnit.has_extension(pu, "companion_spawner_system")
 				if spawner then
-					local skulls = get_all_companion_units(spawner)
-					if skulls then
-						for i = 1, #skulls do
-							local skull = skulls[i]
-							if skull and ALIVE[skull] then
-								local st = nil
-								local gsm = Managers.state and Managers.state.game_session
-								local usp = Managers.state and Managers.state.unit_spawner
-								if gsm and usp then
-									local gs = gsm:game_session()
-									local go_id = usp:game_object_id(skull)
-									if gs and go_id then
-										local ok_e, exists = pcall(GameSession.game_object_exists, gs, go_id)
-										if ok_e and exists then
-											local ok_b, Breed = pcall(require, "scripts/utilities/breed")
-											local breed = (ok_b and Breed) and Breed.unit_breed_or_nil(skull)
-											local got = breed and breed.game_object_type
-											if got then
-												local ok_h, has_state = pcall(function() return Network.object_has_field(got, "state") end)
-												if ok_h and has_state then
-													local ok_f, state_id = pcall(GameSession.game_object_field, gs, go_id, "state")
-													if ok_f then st = state_id end
-												end
-											end
-										end
-									end
-								end
-
-								if st then
+					local skulls, count = collect_companion_units(spawner, _update_units)
+					for i = 1, count do
+						local skull = skulls[i]
+						if ALIVE[skull] then
+							local go_id = usp:game_object_id(skull)
+							if go_id and GameSession.game_object_exists(gs, go_id) then
+								local breed = Breed.unit_breed_or_nil(skull)
+								local got = breed and breed.game_object_type
+								if got and type_has_state(got) then
+									local st = GameSession.game_object_field(gs, go_id, "state")
 									local prev = _skull_prev_states[skull]
-									if prev ~= st then
+									if st and prev ~= st then
 										_skull_prev_states[skull] = st
 										if prev ~= nil then
-											local ok_st, skull_settings = pcall(require, "scripts/settings/companion/companion_servo_skull_settings")
-											if ok_st and skull_settings and skull_settings.STATES then
-												local STATES = skull_settings.STATES
-												if st == STATES.inject_ally and mod:get("show_servo_medic") then
-													trigger_manual_feed(skull, "skull_medic", "revived an ally")
-												elseif st == STATES.hacking and mod:get("show_servo_hacker") then
-													trigger_manual_feed(skull, "skull_hacker", "is hacking")
-												end
+											if st == STATES.inject_ally and show_servo_medic then
+												trigger_manual_feed(skull, "skull_medic", "revived an ally")
+											elseif st == STATES.hacking and show_servo_hacker then
+												trigger_manual_feed(skull, "skull_hacker", "is hacking")
 											end
 										end
 									end
@@ -494,7 +556,6 @@ mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, s
 		is_companion = true
 		ctype = get_companion_type(unit)
 	elseif last_companion_killer_type and last_companion_killer_unit then
-		local local_player = get_local_player()
 		local owner = get_companion_owner(last_companion_killer_unit)
 		if owner and owner.player_unit == unit then
 			is_companion = true
@@ -504,12 +565,24 @@ mod:hook("HudElementCombatFeed", "_get_unit_presentation_name", function(func, s
 	end
 
 	if is_companion then
-		if ctype == "dog" and not show_dog then return func(self, unit, ...) end
-		if ctype == "skull_flame" and not show_servo_flame then return func(self, unit, ...) end
-		if ctype == "skull_hacker" and not show_servo_hacker then return func(self, unit, ...) end
-		if ctype == "skull_lasgun" and not show_servo_lasgun then return func(self, unit, ...) end
-		if ctype == "skull_medic" and not show_servo_medic then return func(self, unit, ...) end
-		if ctype == "skull" and not show_servo_lasgun then return func(self, unit, ...) end
+		if ctype == "dog" and not show_dog then
+			return func(self, unit, ...)
+		end
+		if ctype == "skull_flame" and not show_servo_flame then
+			return func(self, unit, ...)
+		end
+		if ctype == "skull_hacker" and not show_servo_hacker then
+			return func(self, unit, ...)
+		end
+		if ctype == "skull_lasgun" and not show_servo_lasgun then
+			return func(self, unit, ...)
+		end
+		if ctype == "skull_medic" and not show_servo_medic then
+			return func(self, unit, ...)
+		end
+		if ctype == "skull" and not show_servo_lasgun then
+			return func(self, unit, ...)
+		end
 
 		local owner = get_companion_owner(companion_unit)
 		local local_player = get_local_player()
@@ -535,8 +608,10 @@ end)
 local main_feed_element = nil
 
 lazy_identify = function(self)
-	if self._companion_feed_checked then return end
-	
+	if self._companion_feed_checked then
+		return
+	end
+
 	if self._parent and self._parent._elements then
 		for name, el in pairs(self._parent._elements) do
 			if el == self then
@@ -550,9 +625,15 @@ lazy_identify = function(self)
 						local has_pivot = false
 						local has_background = false
 						for k, _ in pairs(self._ui_scenegraph) do
-							if k == "combat_feed" then has_combat_feed = true end
-							if k == "pivot" then has_pivot = true end
-							if k == "background" then has_background = true end
+							if k == "combat_feed" then
+								has_combat_feed = true
+							end
+							if k == "pivot" then
+								has_pivot = true
+							end
+							if k == "background" then
+								has_background = true
+							end
 						end
 
 						if has_combat_feed then
@@ -598,9 +679,11 @@ local function _maybe_merge_companion_kill(self, attacking_unit, attacked_unit)
 	if not self._notifications or not self._remove_notification or not self._set_text then
 		return false
 	end
-	
+
 	local is_player = Managers.player and Managers.player:player_by_unit(attacked_unit) ~= nil
-	if is_player then return false end
+	if is_player then
+		return false
+	end
 
 	local unit_data_ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 	local breed_or_nil = unit_data_ext and unit_data_ext:breed()
@@ -615,14 +698,17 @@ local function _maybe_merge_companion_kill(self, attacking_unit, attacked_unit)
 		return
 	end
 
-	new_notification.count = 1
+	new_notification.count = new_notification.count or 1
 	new_notification.breed = breed_or_nil
 	new_notification.player = attacking_unit
 
-	for _, notification in ipairs(notifications) do
-		if notification.breed == breed_or_nil
+	for i = #notifications, 1, -1 do
+		local notification = notifications[i]
+		if
+			notification.breed == breed_or_nil
 			and notification.player == attacking_unit
-			and notification.id ~= new_notification.id then
+			and notification.id ~= new_notification.id
+		then
 			new_notification.count = (notification.count or 1) + 1
 			self:_remove_notification(notification.id)
 		end
@@ -633,16 +719,20 @@ local function _maybe_merge_companion_kill(self, attacking_unit, attacked_unit)
 		if not killer then
 			local ext = ScriptUnit.has_extension(attacking_unit, "unit_data_system")
 			local breed = ext and ext:breed()
-			if breed and breed.display_name then killer = Localize(breed.display_name) end
+			if breed and breed.display_name then
+				killer = Localize(breed.display_name)
+			end
 		end
-		
+
 		local victim = self:_get_unit_presentation_name(attacked_unit)
 		if not victim and breed_or_nil and breed_or_nil.display_name then
 			victim = Localize(breed_or_nil.display_name)
 		end
-		
-		if not killer or not victim then return end
-		
+
+		if not killer or not victim then
+			return
+		end
+
 		temp_kill_message_params.killer = killer
 		temp_kill_message_params.victim = victim
 		local text = self:_localize("loc_hud_combat_feed_kill_message", true, temp_kill_message_params)
@@ -669,14 +759,18 @@ mod:hook("HudElementCombatFeed", "event_combat_feed_kill", function(func, self, 
 	if not killer_name then
 		local ext = ScriptUnit.has_extension(attacking_unit, "unit_data_system")
 		local breed = ext and ext:breed()
-		if breed and breed.display_name then killer_name = Localize(breed.display_name) end
+		if breed and breed.display_name then
+			killer_name = Localize(breed.display_name)
+		end
 	end
-	
+
 	local victim_name = self:_get_unit_presentation_name(attacked_unit)
 	if not victim_name then
 		local ext = ScriptUnit.has_extension(attacked_unit, "unit_data_system")
 		local breed = ext and ext:breed()
-		if breed and breed.display_name then victim_name = Localize(breed.display_name) end
+		if breed and breed.display_name then
+			victim_name = Localize(breed.display_name)
+		end
 	end
 
 	if not killer_name or not victim_name then
@@ -784,7 +878,7 @@ local COMPANION_DAMAGE_PROFILES = {
 	["adamant_companion_no_damage_pounce"] = "dog",
 	["whistle_explosion"] = "dog",
 	["close_whistle_explosion"] = "dog",
-	
+
 	["companion_servo_skull_flamer"] = "skull_flame",
 	["default_companion_servo_skull_lasgun_killshot"] = "skull_lasgun",
 	["improved_companion_servo_skull_lasgun_killshot"] = "skull_lasgun",
@@ -792,68 +886,93 @@ local COMPANION_DAMAGE_PROFILES = {
 
 local _dog_targets = setmetatable({}, { __mode = "k" })
 local _flame_skull_targets = setmetatable({}, { __mode = "k" })
-local _companion_targets = setmetatable({}, { __mode = "k" })
 
-mod:hook("AttackReportManager", "_process_attack_result", function(func, self, buffer_data)
+local _profile_info = {}
+
+local function get_profile_info(profile_name)
+	local info = _profile_info[profile_name]
+	if info then
+		return info
+	end
+
+	local find = string.find
+	local companion_type = COMPANION_DAMAGE_PROFILES[profile_name]
+	if companion_type then
+		info = { companion_type = companion_type, is_pounce = find(profile_name, "pounce") ~= nil }
+	elseif find(profile_name, "companion") or find(profile_name, "servo") or find(profile_name, "skull") then
+		info = { companion_type = "skull" }
+	else
+		local is_burn = false
+		local is_bleed_or_shock = false
+		if
+			find(profile_name, "burn")
+			or find(profile_name, "flam")
+			or find(profile_name, "fire")
+			or find(profile_name, "soulblaze")
+			or find(profile_name, "warpfire")
+		then
+			is_burn = not find(profile_name, "grenade") and not find(profile_name, "liquid")
+		elseif
+			find(profile_name, "bleed")
+			or find(profile_name, "electro")
+			or (find(profile_name, "shock") and find(profile_name, "interval"))
+			or find(profile_name, "lightning")
+		then
+			is_bleed_or_shock = true
+		end
+		info = { is_burn = is_burn, is_bleed_or_shock = is_bleed_or_shock }
+	end
+
+	_profile_info[profile_name] = info
+	return info
+end
+
+local function attribute_companion_kill(buffer_data)
 	local profile_name = buffer_data.damage_profile and buffer_data.damage_profile.name
 	local is_flame_skull_dot = false
 	local is_dog_dot = false
 	local now = Managers.time and Managers.time:time("gameplay") or 0
 
 	local attacker_is_companion = buffer_data.attacking_unit and unit_is_companion(buffer_data.attacking_unit)
-	local is_companion_profile = false
-	
+
 	local current_attacker_player = nil
 	if buffer_data.attacking_unit then
-		current_attacker_player = get_companion_owner(buffer_data.attacking_unit) or (Managers.player and Managers.player:player_by_unit(buffer_data.attacking_unit))
+		current_attacker_player = get_companion_owner(buffer_data.attacking_unit)
+			or (Managers.player and Managers.player:player_by_unit(buffer_data.attacking_unit))
 	end
 
 	if attacker_is_companion then
 		last_companion_killer_unit = buffer_data.attacking_unit
 		last_companion_killer_type = get_companion_type(buffer_data.attacking_unit)
-		if buffer_data.attacked_unit and now > 0 then
-			_companion_targets[buffer_data.attacked_unit] = {
-				unit = buffer_data.attacking_unit,
-				ctype = last_companion_killer_type,
-				time = now,
-			}
-		end
 	end
 
 	if profile_name then
-		local companion_type = COMPANION_DAMAGE_PROFILES[profile_name]
-		
+		local info = get_profile_info(profile_name)
+		local companion_type = info.companion_type
+
 		if companion_type then
-			is_companion_profile = true
 			last_companion_killer_type = companion_type
-			
+
 			if companion_type == "dog" and buffer_data.attacked_unit then
-				local is_pounce = string.find(profile_name, "pounce") ~= nil
-				_dog_targets[buffer_data.attacked_unit] = { time = now, player = current_attacker_player, is_pounce = is_pounce }
+				_dog_targets[buffer_data.attacked_unit] =
+					{ time = now, player = current_attacker_player, is_pounce = info.is_pounce }
 			elseif companion_type == "skull_flame" and buffer_data.attacked_unit then
 				_flame_skull_targets[buffer_data.attacked_unit] = { time = now, player = current_attacker_player }
 			end
-		elseif string.find(profile_name, "companion") or string.find(profile_name, "servo") or string.find(profile_name, "skull") then
-			is_companion_profile = true
-			last_companion_killer_type = "skull"
 		else
-			local is_burn = false
-			local is_bleed_or_shock = false
-			
-			if (string.find(profile_name, "burn") or string.find(profile_name, "flam") or string.find(profile_name, "fire") or string.find(profile_name, "soulblaze") or string.find(profile_name, "warpfire")) then
-				if not string.find(profile_name, "grenade") and not string.find(profile_name, "liquid") then
-					is_burn = true
-				end
-			elseif string.find(profile_name, "bleed") or string.find(profile_name, "electro") or (string.find(profile_name, "shock") and string.find(profile_name, "interval")) or string.find(profile_name, "lightning") then
-				is_bleed_or_shock = true
-			end
+			local is_burn = info.is_burn
+			local is_bleed_or_shock = info.is_bleed_or_shock
 
 			if is_burn then
 				local attacked_unit = buffer_data.attacked_unit
 				if attacked_unit and _flame_skull_targets[attacked_unit] then
 					local target_info = _flame_skull_targets[attacked_unit]
 					if type(target_info) == "table" and (now - target_info.time < 10) then
-						if target_info.player and current_attacker_player and target_info.player == current_attacker_player then
+						if
+							target_info.player
+							and current_attacker_player
+							and target_info.player == current_attacker_player
+						then
 							is_flame_skull_dot = true
 						end
 					end
@@ -863,13 +982,17 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 				if attacked_unit and _dog_targets[attacked_unit] then
 					local target_info = _dog_targets[attacked_unit]
 					if type(target_info) == "table" and (now - target_info.time < 10) then
-						if target_info.player and current_attacker_player and target_info.player == current_attacker_player then
+						if
+							target_info.player
+							and current_attacker_player
+							and target_info.player == current_attacker_player
+						then
 							is_dog_dot = true
 						end
 					end
 				end
 			end
-			
+
 			if not attacker_is_companion and buffer_data.attacked_unit then
 				if not is_burn then
 					_flame_skull_targets[buffer_data.attacked_unit] = nil
@@ -879,9 +1002,6 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 					if not (dog_info and dog_info.is_pounce and (now - dog_info.time < 10)) then
 						_dog_targets[buffer_data.attacked_unit] = nil
 					end
-				end
-				if not is_burn and not is_bleed_or_shock then
-					_companion_targets[buffer_data.attacked_unit] = nil
 				end
 			end
 		end
@@ -893,9 +1013,10 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 		if player and player.player_unit and ALIVE[player.player_unit] then
 			local spawner_ext = ScriptUnit.has_extension(player.player_unit, "companion_spawner_system")
 			if spawner_ext then
-				local companions = get_all_companion_units(spawner_ext)
+				local companions, count = collect_companion_units(spawner_ext, _attack_units)
 				if is_flame_skull_dot then
-					for _, spawned_unit in ipairs(companions) do
+					for i = 1, count do
+						local spawned_unit = companions[i]
 						if get_companion_type(spawned_unit) == "skull_flame" then
 							last_companion_killer_unit = spawned_unit
 							last_companion_killer_type = "skull_flame"
@@ -903,7 +1024,8 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 						end
 					end
 				elseif is_dog_dot then
-					for _, spawned_unit in ipairs(companions) do
+					for i = 1, count do
+						local spawned_unit = companions[i]
 						if get_companion_type(spawned_unit) == "dog" then
 							last_companion_killer_unit = spawned_unit
 							last_companion_killer_type = "dog"
@@ -913,9 +1035,14 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 				elseif last_companion_killer_type then
 					local fallback_skull_unit = nil
 					local fallback_skull_type = nil
-					for _, spawned_unit in ipairs(companions) do
+					for i = 1, count do
+						local spawned_unit = companions[i]
 						local c_type = get_companion_type(spawned_unit) or ""
-						if last_companion_killer_type == "any" or c_type == last_companion_killer_type or (last_companion_killer_type == "skull" and string.find(c_type, "skull")) then
+						if
+							last_companion_killer_type == "any"
+							or c_type == last_companion_killer_type
+							or (last_companion_killer_type == "skull" and string.find(c_type, "skull"))
+						then
 							last_companion_killer_unit = spawned_unit
 							last_companion_killer_type = c_type
 							fallback_skull_unit = nil
@@ -935,14 +1062,18 @@ mod:hook("AttackReportManager", "_process_attack_result", function(func, self, b
 			end
 		end
 	end
+end
 
-	if last_companion_killer_unit and buffer_data.attacked_unit and now > 0 then
-		_companion_targets[buffer_data.attacked_unit] = {
-			unit = last_companion_killer_unit,
-			ctype = last_companion_killer_type,
-			time = now,
-		}
-	end
+mod.credit_companion = function(buffer_data)
+	attribute_companion_kill(buffer_data)
+	local unit = last_companion_killer_unit
+	last_companion_killer_type = nil
+	last_companion_killer_unit = nil
+	return unit
+end
+
+mod:hook("AttackReportManager", "_process_attack_result", function(func, self, buffer_data)
+	attribute_companion_kill(buffer_data)
 
 	if buffer_data.attack_result == "died" and buffer_data.attacked_unit then
 		local c_unit = nil
@@ -985,10 +1116,8 @@ mod.on_disabled = function(initial_call)
 	table.clear(_processed_kills)
 	table.clear(_dog_targets)
 	table.clear(_flame_skull_targets)
-	table.clear(_companion_targets)
 	last_companion_killer_type = nil
 	last_companion_killer_unit = nil
-	current_revive_victim = nil
 end
 
 mod.on_enabled = function(initial_call)
@@ -1009,9 +1138,6 @@ mod.on_unload = function(exit_game)
 	table.clear(_processed_kills)
 	table.clear(_dog_targets)
 	table.clear(_flame_skull_targets)
-	table.clear(_companion_targets)
 	last_companion_killer_type = nil
 	last_companion_killer_unit = nil
-	current_revive_victim = nil
 end
-
