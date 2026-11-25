@@ -20,4 +20,4 @@ Shows companion kills (Mastiff, Servo-Skull) under their own name in the killfee
 - Companion Filters (Track Cyber-Mastiff kills, Track Lasgun Skull kills, Track Flame Skull kills, Track Hacker Skull hacks, Track Medic Skull revives)
 </details>
 
-🔗 **Links:** [Source Code](https://github.com/MaddyMarv/companion-killfeed) | [Nexus Mods Profile](https://www.nexusmods.com/profile/indicabunny) | [Support Me on Ko-fi](https://ko-fi.com/indicabunny)
+🔗 **Links:** [Source Code](https://github.com/MaddyMarv/Companion-Killfeed) | [Nexus Mods Profile](https://www.nexusmods.com/profile/indicabunny) | [Support Me on Ko-fi](https://ko-fi.com/indicabunny)
